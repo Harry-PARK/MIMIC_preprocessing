@@ -18,6 +18,6 @@ def check_48h(icu_patient):
         return False
 
 
-# def map_itemid_to_label(itemid):
+# def convert_itemid_to_label(itemid):
 #
 
