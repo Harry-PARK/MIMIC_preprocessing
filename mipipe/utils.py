@@ -18,13 +18,13 @@ def check_48h(icu_patient):
         return False
 
 
-def chart_item_interval_describe(icu_original, codes=None):
+def chart_item_interval_describe(icu_original: pd.DataFrame, codes:list[int]=None)->pd.DataFrame:
     """
     Describe the interval between charttime of the same itemid in the same icustay_id
 
     example:
     code =  "224167, 227243, 220050, 220179, 225309"
-    query = f"SELECT ICUSTAY_ID, ITEMID, CHARTTIME FROM CHARTEVENTS WHERE ITEMID IN ({code}) AND ICUSTAY_ID IS NOT NULL ORDER BY  CHARTTIME LIMIT 1000000;"
+    query = f"SELECT ICUSTAY_ID, ITEMID, CHARTTIME FROM CHARTEVENTS WHERE ITEMID IN ({code}) AND ICUSTAY_ID IS NOT NULL ORDER BY  CHARTTIME LIMIT 100000;"
     icu_original = pd.read_sql(query, db_engine)
     print(icu_original["ITEMID"].unique())
     mip.chart_item_interval_describe(icu_original, code)
@@ -34,24 +34,23 @@ def chart_item_interval_describe(icu_original, codes=None):
     :return: pandas dataframe with columns as itemid and rows as describe result
     """
 
+    # codes 처리
     if codes is None:
         codes = icu_original["ITEMID"].unique()
     else:
-        codes = listlize(codes, int)
+        codes = [int(c) for c in codes]
 
-    icu_original_v1 = icu_original.copy()
-    icu_original_v1 = icu_original_v1.dropna(subset=["ICUSTAY_ID"])
-    summary_frame = pd.DataFrame()
 
+    icu_original_v1 = icu_original.dropna(subset=["ICUSTAY_ID"]).copy()
     icu_original_v1 = icu_original_v1.sort_values(by=["ICUSTAY_ID", "CHARTTIME"])
 
-    for code in codes:
-        icu = icu_original_v1.copy()
-        icu = icu[icu["ITEMID"] == code]
-        icu["f_diff"] = icu.groupby("ICUSTAY_ID")["CHARTTIME"].diff()
-        icu = icu.dropna(subset=["f_diff"])
-        icu["f_hour"] = icu["f_diff"].dt.total_seconds() / 3600
-        summary_frame[code] = icu.describe()["f_hour"]
+    icu_original_v1["f_diff"] = icu_original_v1.groupby(["ITEMID", "ICUSTAY_ID"])["CHARTTIME"].diff()
+    icu_original_v1 = icu_original_v1.dropna(subset=["f_diff"])
+    icu_original_v1["f_hour"] = icu_original_v1["f_diff"].dt.total_seconds() / 3600
+
+    summary = icu_original_v1.groupby("ITEMID")["f_hour"].describe()
+    existing_codes = [c for c in codes if c in summary.index]
+    summary_frame = summary.loc[existing_codes]
 
     return summary_frame
 
