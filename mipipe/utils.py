@@ -59,6 +59,7 @@ def listlize(x, d_type):
     if d_type == int:
         return _listlize_int(x)
 
+
 def _listlize_int(x):
     if isinstance(x, int):
         return [x]

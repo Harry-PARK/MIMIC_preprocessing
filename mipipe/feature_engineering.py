@@ -1,4 +1,3 @@
-import re
 import pandas as pd
 import numpy as np
 
@@ -16,7 +15,7 @@ def chartevents_aggregator(chartevents: pd.DataFrame, itemid: list[int], statist
 
     results = []
     for idx, group in chartevents.groupby("ICUSTAY_ID"):
-        result = _chartevents_hour_aggregate_by_patient(group, itemid, statistics)
+        result = _chartevents_aggregate_hourly(group, itemid, statistics)
         results.append(result)
 
     combined_results = pd.concat(results)
@@ -25,7 +24,7 @@ def chartevents_aggregator(chartevents: pd.DataFrame, itemid: list[int], statist
     return combined_results.reset_index(drop=True)
 
 
-def _chartevents_hour_aggregate_by_patient(icu_patient: pd.DataFrame, itemid: list[int],
+def _chartevents_aggregate_hourly(icu_patient: pd.DataFrame, itemid: list[int],
                                            statistics: list[str] = None) -> pd.DataFrame:
     """
 
@@ -81,6 +80,31 @@ def _chartevents_hour_aggregate_by_patient(icu_patient: pd.DataFrame, itemid: li
     icu_agg.insert(0, "ICUSTAY_ID", icustay_id)
     return icu_agg.reset_index(drop=True)
 
+
+def _chartevents_aggregate_post_processing(icu_patient: pd.DataFrame, item_c,  item_t, statistics: list[str] = None) -> pd.DataFrame:
+
+    if statistics is None:
+        statistics = ["mean"]
+
+    icustay_id = icu_patient["ICUSTAY_ID"].unique()
+    assert len(icustay_id) == 1, "Multiple icustay_id in the dataframe. Only one icustay_id is allowed."
+    icustay_id = icu_patient["ICUSTAY_ID"].iloc[0]
+
+    for key, item_cluster in item_c.items():
+        icu_filtered = icu_patient[icu_patient["ITEMID"].isin(item_cluster)].copy()
+
+        gap = item_t[key]
+
+        icu_filtered["T_grp"] = (icu_filtered["T"] // gap) * gap
+
+        agg_df = (icu_filtered
+                  .groupby(["ICUSTAY_ID", "T_grp", "ITEMID"])
+                  .agg(statistics)
+                  .reset_index())
+
+
+
+    pass
 
 
 def chartevents_group_variables(chartevents: pd.DataFrame) -> pd.DataFrame:
