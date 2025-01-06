@@ -1,9 +1,13 @@
 import numpy as np
 import pandas as pd
+from mipipe.utils import print_func
 
 
+@print_func
 def chartevents_aggregator(chartevents: pd.DataFrame, statistics: list[str] = None) -> pd.DataFrame:
     """
+    aggregate chartevents by hour and pivot table
+
     example:
     mip.chartevents_aggregator(chartevents, [220179, 220210], ["mean", "min"])
 
@@ -86,6 +90,15 @@ def _chartevents_aggregate_hourly(icu_patient: pd.DataFrame,
 
 def chartevents_interval_shift_alignment(chartevents: pd.DataFrame,
                                          item_interval_info: dict[int, list[int]] = None) -> pd.DataFrame:
+    """
+    It re-arranges the item interval by the same interval (1, 4, 24 hours)
+    It automatically choose aggregation methods by searching for the columns with 'mean', 'min', 'max'
+
+
+    :param chartevents: chartevents_aggregator result
+    :param item_interval_info: {1: [220179, 220210], 4: [220179, 220210], 24: [220179, 220210]}
+    :return:
+    """
     def item_columns(df, item_list):
         item_column = []
         for column in df.columns:
@@ -93,6 +106,7 @@ def chartevents_interval_shift_alignment(chartevents: pd.DataFrame,
                 item_column.append(column)
         return item_column
 
+    # re-arranges the item interval
     result = {}
     for intv_h, items in item_interval_info.items():
         columns = [("ICUSTAY_ID", ""), ("T", "")] + item_columns(chartevents, items)
@@ -102,9 +116,9 @@ def chartevents_interval_shift_alignment(chartevents: pd.DataFrame,
             chartevents_c["T_group"] = chartevents_c[("T")]  # make 'T_group' column for merge
         else:
             chartevents_c = _T_intervel_shift_alignment(chartevents_c, intv_h)
-
         result[intv_h] = chartevents_c
 
+    # merge all results
     merged_result = result[1]
     if 4 in result.keys():
         merged_result = pd.merge(merged_result, result[4].sort_index(axis=1), on=["ICUSTAY_ID", "T_group"], how="outer")
@@ -122,7 +136,13 @@ def chartevents_interval_shift_alignment(chartevents: pd.DataFrame,
     return merged_result
 
 
-def _T_intervel_shift_alignment(chartevents: pd.DataFrame, intv_h) -> pd.DataFrame:
+def _T_intervel_shift_alignment(chartevents: pd.DataFrame, intv_h: int) -> pd.DataFrame:
+    """
+    It re-arranges the item interval by the same interval (intv_h: 1, 4, 24 hours)
+    :param chartevents:
+    :param intv_h:
+    :return:
+    """
     def aggregation_info_by_statistics(df):
         agg_info = {}
         for column in df.columns:
@@ -133,12 +153,12 @@ def _T_intervel_shift_alignment(chartevents: pd.DataFrame, intv_h) -> pd.DataFra
 
     chartevents["T_group"] = chartevents[("T")] // intv_h
     agg_info = aggregation_info_by_statistics(chartevents)
-    grouped = chartevents.groupby(["ICUSTAY_ID", "T_group"]).agg(agg_info).reset_index()
-    grouped["T_group"] = grouped["T_group"] * intv_h
+    T_grouped = chartevents.groupby(["ICUSTAY_ID", "T_group"]).agg(agg_info).reset_index()
+    T_grouped["T_group"] = T_grouped["T_group"] * intv_h
 
-    return grouped
+    return T_grouped
 
-
+@print_func
 def chartevents_group_variables(chartevents: pd.DataFrame) -> pd.DataFrame:
     """
     1. convert unit
@@ -180,8 +200,22 @@ def chartevents_group_variables(chartevents: pd.DataFrame) -> pd.DataFrame:
 
     return chartevents
 
+@print_func
+def chartevents_filter_remove_labitems(chartevents: pd.DataFrame, labitems) -> pd.DataFrame:
+    return chartevents[~chartevents["ITEMID"].isin(labitems)]
 
-def check_48h(icu_patient):
+@print_func
+def chartevents_filter_remove_error(chartevents: pd.DataFrame) -> pd.DataFrame:
+    return chartevents[chartevents["ERROR"] != 1]
+
+@print_func
+def chartevents_filter_remove_no_ICUSTAY_ID(chartevents: pd.DataFrame) -> pd.DataFrame:
+    chartevents = chartevents.dropna(subset=["ICUSTAY_ID"])
+    chartevents.loc[:, "ICUSTAY_ID"] = chartevents["ICUSTAY_ID"].astype(int)
+    return chartevents
+
+
+def check_48h(icu_patient: pd.DataFrame) -> bool:
     """
     check if the icu_patient has been in the ICU for more than 48 hours
 
@@ -213,23 +247,24 @@ def chartitem_interval_describe(icu_original: pd.DataFrame, codes: list[int] = N
     :param codes: list of itemid to describe, if None, describe all itemid
     :return: pandas dataframe with columns as itemid and rows as describe result
     """
+    icu_copy = icu_original.copy()
 
     # codes 처리
     if codes is None:
-        codes = icu_original["ITEMID"].unique()
+        codes = icu_copy["ITEMID"].unique()
     else:
         for c in codes:
             if not isinstance(c, int):
                 raise TypeError(f"codes should be list of int, but got type '{type(c)}'")
 
-    icu_original_v1 = icu_original.dropna(subset=["ICUSTAY_ID"]).copy()
-    icu_original_v1 = icu_original_v1.sort_values(by=["ICUSTAY_ID", "CHARTTIME"])
+    icu_copy = icu_copy.dropna(subset=["ICUSTAY_ID"]).copy()
+    icu_copy = icu_copy.sort_values(by=["ICUSTAY_ID", "CHARTTIME"])
 
-    icu_original_v1["f_diff"] = icu_original_v1.groupby(["ITEMID", "ICUSTAY_ID"])["CHARTTIME"].diff()
-    icu_original_v1 = icu_original_v1.dropna(subset=["f_diff"])
-    icu_original_v1["f_hour"] = icu_original_v1["f_diff"].dt.total_seconds() / 3600
+    icu_copy["f_diff"] = icu_copy.groupby(["ITEMID", "ICUSTAY_ID"])["CHARTTIME"].diff()
+    icu_copy = icu_copy.dropna(subset=["f_diff"])
+    icu_copy["f_hour"] = icu_copy["f_diff"].dt.total_seconds() / 3600
 
-    summary = icu_original_v1.groupby("ITEMID")["f_hour"].describe()
+    summary = icu_copy.groupby("ITEMID")["f_hour"].describe()
     existing_codes = [c for c in codes if c in summary.index]
     summary_frame = summary.loc[existing_codes]
 
