@@ -1,13 +1,11 @@
 from mipipe.chartevents_engineering import *
 from mipipe.config import Config
+from mipipe.mimic_preprocessor import MIMICPreprocessor
 
 
-class Chartevents:
+class Chartevents():
     def __init__(self):
-        self.data = None
-        self.filtered = False
-        self.processed = False
-
+        super().__init__()
         self.item_desc_info = None
         self.item_interval_info = None
 
@@ -28,7 +26,7 @@ class Chartevents:
             self.data = chartevents_filter_remove_labitems(self.data, d_labitems)
             self.update_info()
             self.filtered = True
-            print("Filtered Complete!")
+            print("Filtering Complete!")
         else:
             print("Already filtered")
 
@@ -45,7 +43,7 @@ class Chartevents:
             self.data = chartevents_interval_shift_alignment(self.data,
                                                              self.item_interval_info)  # aggregate at 4, 24 hours intervals
             self.processed = True
-            print("Processed Complete!")
+            print("Processing Complete!")
         else:
             print("Already processed")
 

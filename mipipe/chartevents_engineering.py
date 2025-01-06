@@ -206,7 +206,7 @@ def chartevents_filter_remove_labitems(chartevents: pd.DataFrame, labitems) -> p
 
 @print_func
 def chartevents_filter_remove_error(chartevents: pd.DataFrame) -> pd.DataFrame:
-    return chartevents[chartevents["ERROR"] != 1]
+    return chartevents[~chartevents["ERROR"] == 1]
 
 @print_func
 def chartevents_filter_remove_no_ICUSTAY_ID(chartevents: pd.DataFrame) -> pd.DataFrame:
