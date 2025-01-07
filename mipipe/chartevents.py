@@ -9,6 +9,7 @@ class Chartevents(MIMICPreprocessor):
         self.item_desc_info = None
         self.item_interval_info = None
 
+
     def load(self, df: pd.DataFrame):
         self.data = df.copy()
         self.filtered = False

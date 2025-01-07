@@ -285,6 +285,7 @@ def chartitem_interval_grouping(summary_frame: pd.DataFrame) -> dict[int, int]:
     item_desc.loc[index_helper <= 1, "cluster"] = 1
     item_desc.loc[(index_helper > 1) & (index_helper <= 4), "cluster"] = 4
     item_desc.loc[(index_helper > 4) & (index_helper <= 24), "cluster"] = 24
+    item_desc.loc[index_helper > 24, "cluster"] = 1 #  intv_h > 25 items will be remained. (not aggregated or shifted)
 
     item_desc = item_desc.reset_index()
     cluster_dict = item_desc.groupby("cluster")["ITEMID"].apply(list).to_dict()
