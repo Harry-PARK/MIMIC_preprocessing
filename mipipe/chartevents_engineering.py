@@ -87,7 +87,7 @@ def _chartevents_aggregate_hourly(icu_patient: pd.DataFrame,
     icu_agg.insert(0, "ICUSTAY_ID", icustay_id)
     return icu_agg.reset_index(drop=True)
 
-
+@print_func
 def chartevents_interval_shift_alignment(chartevents: pd.DataFrame,
                                          item_interval_info: dict[int, list[int]] = None) -> pd.DataFrame:
     """
@@ -206,7 +206,7 @@ def chartevents_filter_remove_labitems(chartevents: pd.DataFrame, labitems) -> p
 
 @print_func
 def chartevents_filter_remove_error(chartevents: pd.DataFrame) -> pd.DataFrame:
-    return chartevents[~chartevents["ERROR"] == 1]
+    return chartevents[chartevents["ERROR"] != 1]
 
 @print_func
 def chartevents_filter_remove_no_ICUSTAY_ID(chartevents: pd.DataFrame) -> pd.DataFrame:
