@@ -3,11 +3,12 @@ from mipipe.config import Config
 from mipipe.mimic_preprocessor import MIMICPreprocessor
 
 
-class Chartevents():
+class Chartevents(MIMICPreprocessor):
     def __init__(self):
         super().__init__()
         self.item_desc_info = None
         self.item_interval_info = None
+
 
     def load(self, df: pd.DataFrame):
         self.data = df.copy()
