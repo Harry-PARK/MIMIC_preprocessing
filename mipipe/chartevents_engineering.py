@@ -87,7 +87,7 @@ def _chartevents_aggregate_hourly(icu_patient: pd.DataFrame,
     icu_agg.insert(0, "ICUSTAY_ID", icustay_id)
     return icu_agg.reset_index(drop=True)
 
-
+@print_func
 def chartevents_interval_shift_alignment(chartevents: pd.DataFrame,
                                          item_interval_info: dict[int, list[int]] = None) -> pd.DataFrame:
     """
@@ -206,7 +206,7 @@ def chartevents_filter_remove_labitems(chartevents: pd.DataFrame, labitems) -> p
 
 @print_func
 def chartevents_filter_remove_error(chartevents: pd.DataFrame) -> pd.DataFrame:
-    return chartevents[~chartevents["ERROR"] == 1]
+    return chartevents[chartevents["ERROR"] != 1]
 
 @print_func
 def chartevents_filter_remove_no_ICUSTAY_ID(chartevents: pd.DataFrame) -> pd.DataFrame:
@@ -285,6 +285,7 @@ def chartitem_interval_grouping(summary_frame: pd.DataFrame) -> dict[int, int]:
     item_desc.loc[index_helper <= 1, "cluster"] = 1
     item_desc.loc[(index_helper > 1) & (index_helper <= 4), "cluster"] = 4
     item_desc.loc[(index_helper > 4) & (index_helper <= 24), "cluster"] = 24
+    item_desc.loc[index_helper > 24, "cluster"] = 1 #  intv_h > 25 items will be remained. (not aggregated or shifted)
 
     item_desc = item_desc.reset_index()
     cluster_dict = item_desc.groupby("cluster")["ITEMID"].apply(list).to_dict()
