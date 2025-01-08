@@ -4,7 +4,7 @@ from mipipe.utils import print_func
 
 
 @print_func
-def chartevents_aggregator(chartevents: pd.DataFrame, statistics: list[str] = None) -> pd.DataFrame:
+def process_aggregator(chartevents: pd.DataFrame, statistics: list[str] = None) -> pd.DataFrame:
     """
     aggregate chartevents by hour and pivot table
 
@@ -17,7 +17,7 @@ def chartevents_aggregator(chartevents: pd.DataFrame, statistics: list[str] = No
     """
 
     grouped = chartevents.groupby("ICUSTAY_ID")
-    combined_results = grouped.apply(lambda group: _chartevents_aggregate_hourly(group, statistics),
+    combined_results = grouped.apply(lambda group: _aggregate_hourly(group, statistics),
                                      include_groups=False)
 
     if "index" in combined_results.columns:
@@ -26,7 +26,99 @@ def chartevents_aggregator(chartevents: pd.DataFrame, statistics: list[str] = No
     return combined_results.reset_index(drop=True)
 
 
-def _chartevents_aggregate_hourly(icu_patient: pd.DataFrame,
+@print_func
+def process_interval_shift_alignment(chartevents: pd.DataFrame,
+                                         item_interval_info: dict[int, list[int]] = None) -> pd.DataFrame:
+    """
+    It re-arranges the item interval by the same interval (1, 4, 24 hours)
+    It automatically choose aggregation methods by searching for the columns with 'mean', 'min', 'max'
+
+
+    :param chartevents: chartevents_aggregator result
+    :param item_interval_info: {1: [220179, 220210], 4: [220179, 220210], 24: [220179, 220210]}
+    :return:
+    """
+    def item_columns(df, item_list):
+        item_column = []
+        for column in df.columns:
+            if column[0] in item_list:
+                item_column.append(column)
+        return item_column
+
+    # re-arranges the item interval
+    result = {}
+    for intv_h, items in item_interval_info.items():
+        columns = [("ICUSTAY_ID", ""), ("T", "")] + item_columns(chartevents, items)
+        chartevents_c = chartevents[columns].copy()  # filter items by the same interval
+        if intv_h == 1:
+            # intv_h = 1 : no change needed because already aggregated by hour at chartevents_aggregator
+            chartevents_c["T_group"] = chartevents_c[("T")]  # make 'T_group' column for merge
+        else:
+            chartevents_c = _T_intervel_shift_alignment(chartevents_c, intv_h)
+        result[intv_h] = chartevents_c
+
+    # merge all results
+    merged_result = result[1]
+    if 4 in result.keys():
+        merged_result = pd.merge(merged_result, result[4].sort_index(axis=1), on=["ICUSTAY_ID", "T_group"], how="outer")
+    if 24 in result.keys():
+        merged_result = pd.merge(merged_result, result[24].sort_index(axis=1), on=["ICUSTAY_ID", "T_group"], how="outer")
+
+    merged_result = merged_result.sort_index(axis=1)
+    merged_result["ICUSTAY_ID"] = merged_result["ICUSTAY_ID"].astype(int)
+    merged_result = merged_result.drop(columns=["T_group"])
+
+    cols = merged_result.columns.tolist()
+    new_cols = cols[-2:] + cols[:-2]
+    merged_result = merged_result[new_cols]
+
+    return merged_result
+
+
+@print_func
+def process_group_variables(chartevents: pd.DataFrame) -> pd.DataFrame:
+    """
+    1. convert unit
+    2. change some ITEMID into representative variable
+        HR: 220045
+        SysBP: 220179 <- [224167, 227243, 220050, 220179, 225309]
+        DiasBP: 220180 <- [224643, 227242, 220051, 220180, 225310]
+        RR: 220210 <- [220210, 224690]
+        Temperature: 223762 <- [223761, 223762]
+        SpO2: 220277
+        Height: 226730 <- [226707, 226730]
+        Weight: 224639 <- [224639, 226512, 226531]
+    3. group by (ICUSTAY_ID, ITEMID, CHARTTIME)
+
+    :param chartevents:
+    :return:    ICUSTAY_ID | ITEMID | CHARTTIME | VALUENUM
+    """
+
+    chartevents = chartevents[["ICUSTAY_ID", "ITEMID", "CHARTTIME", "VALUENUM"]].copy()
+    # convert unit
+    chartevents.loc[chartevents["ITEMID"] == 223761, "VALUENUM"] = (chartevents.loc[chartevents[
+                                                                                        "ITEMID"] == 223761, "VALUENUM"] - 32) * 5 / 9  # F -> C
+    chartevents.loc[chartevents["ITEMID"] == 226707, "VALUENUM"] = chartevents.loc[chartevents[
+                                                                                       "ITEMID"] == 226707, "VALUENUM"] * 2.54  # Inch -> cm
+    chartevents.loc[chartevents["ITEMID"] == 226531, "VALUENUM"] = chartevents.loc[chartevents[
+                                                                                       "ITEMID"] == 226531, "VALUENUM"] * 0.453592  # lb -> kg
+
+    # change ITEMID into representative variable
+    chartevents.loc[chartevents["ITEMID"].isin([224167, 227243, 220050, 220179, 225309]), "ITEMID"] = 220179  # SysBP
+    chartevents.loc[chartevents["ITEMID"].isin([224643, 227242, 220051, 220180, 225310]), "ITEMID"] = 220180  # DiasBP
+    chartevents.loc[chartevents["ITEMID"].isin([220210, 224690]), "ITEMID"] = 220210  # RR
+    chartevents.loc[chartevents["ITEMID"].isin([223761, 223762]), "ITEMID"] = 223762  # Temperature
+    chartevents.loc[chartevents["ITEMID"].isin([226707, 226730]), "ITEMID"] = 226730  # Height
+    chartevents.loc[chartevents["ITEMID"].isin([224639, 226512, 226531]), "ITEMID"] = 224639  # Weight
+
+    # group by (ICUSTAY_ID, ITEMID, CHARTTIME) => aggregate by mean
+    chartevents = chartevents.groupby(["ICUSTAY_ID", "ITEMID", "CHARTTIME"]).mean().reset_index()
+    chartevents["ICUSTAY_ID"] = chartevents["ICUSTAY_ID"].astype(int)
+
+    return chartevents
+
+
+def _aggregate_hourly(icu_patient: pd.DataFrame,
                                   statistics: list[str] = None) -> pd.DataFrame:
     """
     example:
@@ -87,54 +179,6 @@ def _chartevents_aggregate_hourly(icu_patient: pd.DataFrame,
     icu_agg.insert(0, "ICUSTAY_ID", icustay_id)
     return icu_agg.reset_index(drop=True)
 
-@print_func
-def chartevents_interval_shift_alignment(chartevents: pd.DataFrame,
-                                         item_interval_info: dict[int, list[int]] = None) -> pd.DataFrame:
-    """
-    It re-arranges the item interval by the same interval (1, 4, 24 hours)
-    It automatically choose aggregation methods by searching for the columns with 'mean', 'min', 'max'
-
-
-    :param chartevents: chartevents_aggregator result
-    :param item_interval_info: {1: [220179, 220210], 4: [220179, 220210], 24: [220179, 220210]}
-    :return:
-    """
-    def item_columns(df, item_list):
-        item_column = []
-        for column in df.columns:
-            if column[0] in item_list:
-                item_column.append(column)
-        return item_column
-
-    # re-arranges the item interval
-    result = {}
-    for intv_h, items in item_interval_info.items():
-        columns = [("ICUSTAY_ID", ""), ("T", "")] + item_columns(chartevents, items)
-        chartevents_c = chartevents[columns].copy()  # filter items by the same interval
-        if intv_h == 1:
-            # intv_h = 1 : no change needed because already aggregated by hour at chartevents_aggregator
-            chartevents_c["T_group"] = chartevents_c[("T")]  # make 'T_group' column for merge
-        else:
-            chartevents_c = _T_intervel_shift_alignment(chartevents_c, intv_h)
-        result[intv_h] = chartevents_c
-
-    # merge all results
-    merged_result = result[1]
-    if 4 in result.keys():
-        merged_result = pd.merge(merged_result, result[4].sort_index(axis=1), on=["ICUSTAY_ID", "T_group"], how="outer")
-    if 24 in result.keys():
-        merged_result = pd.merge(merged_result, result[24].sort_index(axis=1), on=["ICUSTAY_ID", "T_group"], how="outer")
-
-    merged_result = merged_result.sort_index(axis=1)
-    merged_result["ICUSTAY_ID"] = merged_result["ICUSTAY_ID"].astype(int)
-    merged_result = merged_result.drop(columns=["T_group"])
-
-    cols = merged_result.columns.tolist()
-    new_cols = cols[-2:] + cols[:-2]
-    merged_result = merged_result[new_cols]
-
-    return merged_result
-
 
 def _T_intervel_shift_alignment(chartevents: pd.DataFrame, intv_h: int) -> pd.DataFrame:
     """
@@ -158,58 +202,17 @@ def _T_intervel_shift_alignment(chartevents: pd.DataFrame, intv_h: int) -> pd.Da
 
     return T_grouped
 
-@print_func
-def chartevents_group_variables(chartevents: pd.DataFrame) -> pd.DataFrame:
-    """
-    1. convert unit
-    2. change some ITEMID into representative variable
-        HR: 220045
-        SysBP: 220179 <- [224167, 227243, 220050, 220179, 225309]
-        DiasBP: 220180 <- [224643, 227242, 220051, 220180, 225310]
-        RR: 220210 <- [220210, 224690]
-        Temperature: 223762 <- [223761, 223762]
-        SpO2: 220277
-        Height: 226730 <- [226707, 226730]
-        Weight: 224639 <- [224639, 226512, 226531]
-    3. group by (ICUSTAY_ID, ITEMID, CHARTTIME)
-
-    :param chartevents:
-    :return:    ICUSTAY_ID | ITEMID | CHARTTIME | VALUENUM
-    """
-
-    chartevents = chartevents[["ICUSTAY_ID", "ITEMID", "CHARTTIME", "VALUENUM"]].copy()
-    # convert unit
-    chartevents.loc[chartevents["ITEMID"] == 223761, "VALUENUM"] = (chartevents.loc[chartevents[
-                                                                                        "ITEMID"] == 223761, "VALUENUM"] - 32) * 5 / 9  # F -> C
-    chartevents.loc[chartevents["ITEMID"] == 226707, "VALUENUM"] = chartevents.loc[chartevents[
-                                                                                       "ITEMID"] == 226707, "VALUENUM"] * 2.54  # Inch -> cm
-    chartevents.loc[chartevents["ITEMID"] == 226531, "VALUENUM"] = chartevents.loc[chartevents[
-                                                                                       "ITEMID"] == 226531, "VALUENUM"] * 0.453592  # lb -> kg
-
-    # change ITEMID into representative variable
-    chartevents.loc[chartevents["ITEMID"].isin([224167, 227243, 220050, 220179, 225309]), "ITEMID"] = 220179  # SysBP
-    chartevents.loc[chartevents["ITEMID"].isin([224643, 227242, 220051, 220180, 225310]), "ITEMID"] = 220180  # DiasBP
-    chartevents.loc[chartevents["ITEMID"].isin([220210, 224690]), "ITEMID"] = 220210  # RR
-    chartevents.loc[chartevents["ITEMID"].isin([223761, 223762]), "ITEMID"] = 223762  # Temperature
-    chartevents.loc[chartevents["ITEMID"].isin([226707, 226730]), "ITEMID"] = 226730  # Height
-    chartevents.loc[chartevents["ITEMID"].isin([224639, 226512, 226531]), "ITEMID"] = 224639  # Weight
-
-    # group by (ICUSTAY_ID, ITEMID, CHARTTIME) => aggregate by mean
-    chartevents = chartevents.groupby(["ICUSTAY_ID", "ITEMID", "CHARTTIME"]).mean().reset_index()
-    chartevents["ICUSTAY_ID"] = chartevents["ICUSTAY_ID"].astype(int)
-
-    return chartevents
 
 @print_func
-def chartevents_filter_remove_labitems(chartevents: pd.DataFrame, labitems) -> pd.DataFrame:
+def filter_remove_labitems(chartevents: pd.DataFrame, labitems) -> pd.DataFrame:
     return chartevents[~chartevents["ITEMID"].isin(labitems)]
 
 @print_func
-def chartevents_filter_remove_error(chartevents: pd.DataFrame) -> pd.DataFrame:
+def filter_remove_error(chartevents: pd.DataFrame) -> pd.DataFrame:
     return chartevents[chartevents["ERROR"] != 1]
 
 @print_func
-def chartevents_filter_remove_no_ICUSTAY_ID(chartevents: pd.DataFrame) -> pd.DataFrame:
+def filter_remove_no_ICUSTAY_ID(chartevents: pd.DataFrame) -> pd.DataFrame:
     chartevents = chartevents.dropna(subset=["ICUSTAY_ID"])
     chartevents.loc[:, "ICUSTAY_ID"] = chartevents["ICUSTAY_ID"].astype(int)
     return chartevents
@@ -232,7 +235,7 @@ def check_48h(icu_patient: pd.DataFrame) -> bool:
         return False
 
 
-def chartitem_interval_describe(icu_original: pd.DataFrame, codes: list[int] = None) -> pd.DataFrame:
+def interval_describe(icu_original: pd.DataFrame, codes: list[int] = None) -> pd.DataFrame:
     """
     Describe the interval(hour) between charttime of the same itemid in the same icustay_id
 
@@ -271,7 +274,7 @@ def chartitem_interval_describe(icu_original: pd.DataFrame, codes: list[int] = N
     return summary_frame.reset_index()
 
 
-def chartitem_interval_grouping(summary_frame: pd.DataFrame) -> dict[int, int]:
+def interval_grouping(summary_frame: pd.DataFrame) -> dict[int, int]:
     """
     labeling the itemid based on the interval(hour) between charttime of the same itemid in the same icustay_id
     :param summary_frame:
