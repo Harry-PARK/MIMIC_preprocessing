@@ -1,6 +1,6 @@
 import pandas as pd
 
-from mipipe.inputevents_mv_engineering import *
+import mipipe.inputevents_mv_engineering as inputengine
 from mipipe.config import Config
 from mipipe.mimic_preprocessor import MIMICPreprocessor
 
@@ -28,7 +28,7 @@ class InputeventsMV(MIMICPreprocessor):
                 self.filter()
             print("-----------------------------------")
             print("Processing...")
-            self.data = process_convert_rateuom_into_hour(self.data)
+            self.data = inputengine.process_convert_rateuom_into_hour(self.data)
 
             self.processed = True
             print("Processing Complete!")
