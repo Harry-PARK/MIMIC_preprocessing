@@ -5,6 +5,9 @@ from mipipe.mimic_preprocessor import MIMICPreprocessor
 
 
 class Chartevents(MIMICPreprocessor):
+
+    required_columns = "ICUSTAY_ID, ITEMID, CHARTTIME, VALUE, VALUENUM, VALUEUOM, ERROR"
+
     def __init__(self):
         super().__init__()
         self.item_desc_info = None
@@ -12,7 +15,7 @@ class Chartevents(MIMICPreprocessor):
 
 
     def load(self, df: pd.DataFrame):
-        self.data = df.copy()
+        self.data = df.copy().sort_values(by=["ICUSTAY_ID", "CHARTTIME"])
         self.filtered = False
         self.processed = False
         self.update_info()
