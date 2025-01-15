@@ -4,20 +4,21 @@ from mipipe.utils import print_func
 
 
 @print_func
-def process_aggregator(chartevents: pd.DataFrame, statistics: list[str] = None) -> pd.DataFrame:
+def process_aggregator(chartevents: pd.DataFrame, patients_T_info:pd.DataFrame, statistics: list[str] = None) -> pd.DataFrame:
     """
     aggregate chartevents by hour and pivot table
 
     example:
-    mip.chartevents_aggregator(chartevents, [220179, 220210], ["mean", "min"])
+    mip.chartevents_aggregator(chartevents, patients_static.time_T_info, ["mean", "min"])
 
     :param chartevents:
+    :param patients_T_info:
     :param statistics:
     :return:
     """
 
     grouped = chartevents.groupby("ICUSTAY_ID")
-    combined_results = grouped.apply(lambda group: _aggregate_hourly(group, statistics),
+    combined_results = grouped.apply(lambda group: _aggregate_hourly(group, patients_T_info[patients_T_info["ICUSTAY_ID"]==group.name], statistics),
                                      include_groups=False)
 
     if "index" in combined_results.columns:
@@ -118,22 +119,20 @@ def process_group_variables(chartevents: pd.DataFrame) -> pd.DataFrame:
     return chartevents
 
 
-def _aggregate_hourly(icu_patient: pd.DataFrame,
+def _aggregate_hourly(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
                                   statistics: list[str] = None) -> pd.DataFrame:
     """
     example:
-    mip.chartevents_aggregator(icu_patient, [220179, 220210], ["mean", "min"])
+    mip.chartevents_aggregator(icu_patient, patients_static.time_T_info, ["mean", "min"])
 
     :param icu_patient:
+    :param patient_T_info:
     :param statistics:
     :return:
     """
 
-    icu_patient["ICUSTAY_ID"] = icu_patient.name
-
-    icustay_id = icu_patient["ICUSTAY_ID"].unique()
-    assert len(icustay_id) == 1, "Multiple icustay_id in the dataframe. Only one icustay_id is allowed."
-    icustay_id = icu_patient["ICUSTAY_ID"].iloc[0]
+    icustay_id = icu_patient.name
+    t_info = patient_T_info
 
     if statistics is None:
         statistics = ["mean"]
@@ -145,27 +144,33 @@ def _aggregate_hourly(icu_patient: pd.DataFrame,
 
     ############### filter here if needed ############### <- here (ex) remove outliers)
 
-    # Time mark
-    admittime = icu_copy["CHARTTIME"].min()
-    icu_copy["T"] = (icu_copy["CHARTTIME"] - admittime).dt.total_seconds() // 1800  # mark first 30 minutes
+    def map_T_value(charttime, t_info):
+        for index, row in t_info.iterrows():
+            if charttime in row["T_range"]:
+                return row["T"]
+        return -1
+
+    icu_copy["T"] = icu_copy["CHARTTIME"].apply(lambda x: map_T_value(x, t_info))
+    icu_copy = icu_copy[icu_copy["T"] != -1]
+    if icu_copy.empty:
+        print(icustay_id)
+        return icu_copy
+    icu_copy["T"] = icu_copy["T"].astype(int)
+
 
     if icu_copy["T"].max() < 1:
         # if only data is less than 30 minutes (only 30 minutes data)
-        icu_copy["T"] = icu_copy["T"].astype(int)
         icu_agg = icu_copy.drop("CHARTTIME", axis=1).groupby("T").agg(statistics).reset_index()
         icu_agg.insert(0, "ICUSTAY_ID", icustay_id)
         return icu_agg
 
-    hour_start = icu_copy.loc[icu_copy["T"] != 0, "CHARTTIME"].iloc[0]
-    icu_copy.loc[icu_copy["T"] > 0, "T"] = (icu_copy[
-                                                "CHARTTIME"] - hour_start).dt.total_seconds() // 3600 + 1  # mark by hour after 30 minutes
-    # Aggregate data
-    icu_copy["T"] = icu_copy["T"].astype(int)
-    icu_agg = icu_copy.drop("CHARTTIME", axis=1).groupby("T").agg(statistics).reset_index()
 
+    # Aggregate data
+    icu_agg = icu_copy.drop("CHARTTIME", axis=1).groupby("T").agg(statistics).reset_index()
     # Fill missing time
     T_pool = set(range(0, icu_agg["T"].max()))
     T_diff = T_pool - set(icu_agg["T"])
+
 
     # Fill NaN value at time of missing
     temp_list = []
