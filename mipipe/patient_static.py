@@ -9,3 +9,5 @@ class PatientStatic:
     def load(self, data):
         self.data = data.copy()
         self.time_T_info = patientengine.make_time_T_info(self.data)
+
+

@@ -19,7 +19,8 @@ def make_time_T_info(patients: pd.DataFrame) -> pd.DataFrame:
             else:
                 start = admission_time + pd.Timedelta(minutes=30) + pd.Timedelta(hours=(T - 1))
                 end = start + pd.Timedelta(hours=1)
-            T_range = f"{start.strftime('%Y-%m-%d %H:%M:%S')} ~ {end.strftime('%Y-%m-%d %H:%M:%S')}"
+            # T_range = f"{start.strftime('%Y-%m-%d %H:%M:%S')} ~ {end.strftime('%Y-%m-%d %H:%M:%S')}"
+            T_range = pd.Interval(left=start, right=end, closed='left')
             T_list.append({'T': T, 'T_range': T_range})
         return T_list
 
