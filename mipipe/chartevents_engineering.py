@@ -1,10 +1,12 @@
 import numpy as np
 import pandas as pd
+
 from mipipe.utils import print_func
 
 
 @print_func
-def process_aggregator(chartevents: pd.DataFrame, patients_T_info:pd.DataFrame, statistics: list[str] = None) -> pd.DataFrame:
+def process_aggregator(chartevents: pd.DataFrame, patients_T_info: pd.DataFrame,
+                       statistics: list[str] = None) -> pd.DataFrame:
     """
     aggregate chartevents by hour and pivot table
 
@@ -18,9 +20,10 @@ def process_aggregator(chartevents: pd.DataFrame, patients_T_info:pd.DataFrame, 
     """
 
     grouped = chartevents.groupby("ICUSTAY_ID")
-    combined_results = grouped.apply(lambda group: _aggregate_hourly(group, patients_T_info[patients_T_info["ICUSTAY_ID"]==group.name], statistics),
-                                     include_groups=False)
-
+    combined_results = grouped.apply(
+        lambda group: _aggregate_hourly(group, patients_T_info[patients_T_info["ICUSTAY_ID"] == group.name],
+                                        statistics),
+        include_groups=False)
     if "index" in combined_results.columns:
         combined_results = combined_results.drop(columns="index")
 
@@ -29,7 +32,7 @@ def process_aggregator(chartevents: pd.DataFrame, patients_T_info:pd.DataFrame, 
 
 @print_func
 def process_interval_shift_alignment(chartevents: pd.DataFrame,
-                                         item_interval_info: dict[int, list[int]] = None) -> pd.DataFrame:
+                                     item_interval_info: dict[int, list[int]] = None) -> pd.DataFrame:
     """
     It re-arranges the item interval by the same interval (1, 4, 24 hours)
     It automatically choose aggregation methods by searching for the columns with 'mean', 'min', 'max'
@@ -39,6 +42,7 @@ def process_interval_shift_alignment(chartevents: pd.DataFrame,
     :param item_interval_info: {1: [220179, 220210], 4: [220179, 220210], 24: [220179, 220210]}
     :return:
     """
+
     def item_columns(df, item_list):
         item_column = []
         for column in df.columns:
@@ -63,7 +67,8 @@ def process_interval_shift_alignment(chartevents: pd.DataFrame,
     if 4 in result.keys():
         merged_result = pd.merge(merged_result, result[4].sort_index(axis=1), on=["ICUSTAY_ID", "T_group"], how="outer")
     if 24 in result.keys():
-        merged_result = pd.merge(merged_result, result[24].sort_index(axis=1), on=["ICUSTAY_ID", "T_group"], how="outer")
+        merged_result = pd.merge(merged_result, result[24].sort_index(axis=1), on=["ICUSTAY_ID", "T_group"],
+                                 how="outer")
 
     merged_result = merged_result.sort_index(axis=1)
     merged_result["ICUSTAY_ID"] = merged_result["ICUSTAY_ID"].astype(int)
@@ -120,7 +125,7 @@ def process_group_variables(chartevents: pd.DataFrame) -> pd.DataFrame:
 
 
 def _aggregate_hourly(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
-                                  statistics: list[str] = None) -> pd.DataFrame:
+                      statistics: list[str] = None) -> pd.DataFrame:
     """
     example:
     mip.chartevents_aggregator(icu_patient, patients_static.time_T_info, ["mean", "min"])
@@ -130,6 +135,12 @@ def _aggregate_hourly(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
     :param statistics:
     :return:
     """
+
+    def map_T_value(charttime, t_info):
+        for index, row in t_info.iterrows():
+            if charttime in row["T_range"]:
+                return row["T"]
+        return -1
 
     icustay_id = icu_patient.name
     t_info = patient_T_info
@@ -142,46 +153,35 @@ def _aggregate_hourly(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
                                     aggfunc="mean").reset_index()
     icu_copy = icu_copy.sort_values(by="CHARTTIME")
 
-    ############### filter here if needed ############### <- here (ex) remove outliers)
-
-    def map_T_value(charttime, t_info):
-        for index, row in t_info.iterrows():
-            if charttime in row["T_range"]:
-                return row["T"]
-        return -1
-
     icu_copy["T"] = icu_copy["CHARTTIME"].apply(lambda x: map_T_value(x, t_info))
-    icu_copy = icu_copy[icu_copy["T"] != -1]
-    if icu_copy.empty:
-        print(icustay_id)
-        return icu_copy
-    icu_copy["T"] = icu_copy["T"].astype(int)
-
-
-    if icu_copy["T"].max() < 1:
-        # if only data is less than 30 minutes (only 30 minutes data)
-        icu_agg = icu_copy.drop("CHARTTIME", axis=1).groupby("T").agg(statistics).reset_index()
-        icu_agg.insert(0, "ICUSTAY_ID", icustay_id)
-        return icu_agg
-
 
     # Aggregate data
+    icu_copy["T"] = icu_copy["T"].astype(int)
     icu_agg = icu_copy.drop("CHARTTIME", axis=1).groupby("T").agg(statistics).reset_index()
+    icu_agg.insert(0, "ICUSTAY_ID", icustay_id)
+
+    icu_agg = icu_agg[icu_agg[('T', '')] != -1]
+    if icu_agg.empty:
+        return icu_agg
+
+    if icu_agg["T"].max() < 1:
+        # if only data is less than 30 minutes (only 30 minutes data)
+        return icu_agg
+
     # Fill missing time
     T_pool = set(range(0, icu_agg["T"].max()))
     T_diff = T_pool - set(icu_agg["T"])
-
 
     # Fill NaN value at time of missing
     temp_list = []
     for t in T_diff:
         new_row = {column: np.NaN for column in icu_agg.columns}
         new_row[('T', '')] = t
+        new_row[('ICUSTAY_ID', '')] = icustay_id
         temp_list.append(new_row)
     icu_agg = pd.concat([icu_agg, pd.DataFrame(temp_list)], ignore_index=True)
-
     icu_agg = icu_agg.sort_values(by="T")
-    icu_agg.insert(0, "ICUSTAY_ID", icustay_id)
+
     return icu_agg.reset_index(drop=True)
 
 
@@ -192,6 +192,7 @@ def _T_intervel_shift_alignment(chartevents: pd.DataFrame, intv_h: int) -> pd.Da
     :param intv_h:
     :return:
     """
+
     def aggregation_info_by_statistics(df):
         agg_info = {}
         for column in df.columns:
@@ -212,9 +213,11 @@ def _T_intervel_shift_alignment(chartevents: pd.DataFrame, intv_h: int) -> pd.Da
 def filter_remove_labitems(chartevents: pd.DataFrame, labitems) -> pd.DataFrame:
     return chartevents[~chartevents["ITEMID"].isin(labitems)]
 
+
 @print_func
 def filter_remove_error(chartevents: pd.DataFrame) -> pd.DataFrame:
     return chartevents[chartevents["ERROR"] != 1]
+
 
 @print_func
 def filter_remove_no_ICUSTAY_ID(chartevents: pd.DataFrame) -> pd.DataFrame:
@@ -293,7 +296,7 @@ def interval_grouping(summary_frame: pd.DataFrame) -> dict[int, int]:
     item_desc.loc[index_helper <= 1, "cluster"] = 1
     item_desc.loc[(index_helper > 1) & (index_helper <= 4), "cluster"] = 4
     item_desc.loc[(index_helper > 4) & (index_helper <= 24), "cluster"] = 24
-    item_desc.loc[index_helper > 24, "cluster"] = 1 #  intv_h > 25 items will be remained. (not aggregated or shifted)
+    item_desc.loc[index_helper > 24, "cluster"] = 1  # intv_h > 25 items will be remained. (not aggregated or shifted)
 
     item_desc = item_desc.reset_index()
     cluster_dict = item_desc.groupby("cluster")["ITEMID"].apply(list).to_dict()
