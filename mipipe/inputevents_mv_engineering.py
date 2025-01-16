@@ -2,7 +2,7 @@ import pandas as pd
 from mipipe.utils import *
 
 
-@print_func
+@print_completion
 def process_convert_rateuom_into_hour(inputevents_o: pd.DataFrame) -> pd.DataFrame:
     """
 

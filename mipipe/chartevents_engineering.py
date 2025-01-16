@@ -1,17 +1,17 @@
 import numpy as np
 import pandas as pd
 
-from mipipe.utils import print_func
+from mipipe.utils import print_completion
 
 
-@print_func
+@print_completion
 def process_aggregator(chartevents: pd.DataFrame, patients_T_info: pd.DataFrame,
                        statistics: list[str] = None) -> pd.DataFrame:
     """
     aggregate chartevents by hour and pivot table
 
     example:
-    mip.chartevents_aggregator(chartevents, patients_static.time_T_info, ["mean", "min"])
+    mip.chartevents_aggregator(chartevents, patients_static.patients_T_info, ["mean", "min"])
 
     :param chartevents:
     :param patients_T_info:
@@ -27,10 +27,11 @@ def process_aggregator(chartevents: pd.DataFrame, patients_T_info: pd.DataFrame,
     if "index" in combined_results.columns:
         combined_results = combined_results.drop(columns="index")
 
+    combined_results["ICUSTAY_ID"] = combined_results["ICUSTAY_ID"].astype(int)
     return combined_results.reset_index(drop=True)
 
 
-@print_func
+@print_completion
 def process_interval_shift_alignment(chartevents: pd.DataFrame,
                                      item_interval_info: dict[int, list[int]] = None) -> pd.DataFrame:
     """
@@ -81,7 +82,7 @@ def process_interval_shift_alignment(chartevents: pd.DataFrame,
     return merged_result
 
 
-@print_func
+@print_completion
 def process_group_variables(chartevents: pd.DataFrame) -> pd.DataFrame:
     """
     1. convert unit
@@ -128,7 +129,7 @@ def _aggregate_hourly(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
                       statistics: list[str] = None) -> pd.DataFrame:
     """
     example:
-    mip.chartevents_aggregator(icu_patient, patients_static.time_T_info, ["mean", "min"])
+    mip.chartevents_aggregator(icu_patient, patients_static.patients_T_info, ["mean", "min"])
 
     :param icu_patient:
     :param patient_T_info:
@@ -160,7 +161,7 @@ def _aggregate_hourly(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
     icu_agg = icu_copy.drop("CHARTTIME", axis=1).groupby("T").agg(statistics).reset_index()
     icu_agg.insert(0, "ICUSTAY_ID", icustay_id)
 
-    icu_agg = icu_agg[icu_agg[('T', '')] != -1]
+    icu_agg = icu_agg[icu_agg[('T', '')] != -1] # This code should be under 'Aggregate data' part to get the same MultiIndex from .agg(statistics)
     if icu_agg.empty:
         return icu_agg
 
@@ -209,17 +210,17 @@ def _T_intervel_shift_alignment(chartevents: pd.DataFrame, intv_h: int) -> pd.Da
     return T_grouped
 
 
-@print_func
+@print_completion
 def filter_remove_labitems(chartevents: pd.DataFrame, labitems) -> pd.DataFrame:
     return chartevents[~chartevents["ITEMID"].isin(labitems)]
 
 
-@print_func
+@print_completion
 def filter_remove_error(chartevents: pd.DataFrame) -> pd.DataFrame:
     return chartevents[chartevents["ERROR"] != 1]
 
 
-@print_func
+@print_completion
 def filter_remove_no_ICUSTAY_ID(chartevents: pd.DataFrame) -> pd.DataFrame:
     chartevents = chartevents.dropna(subset=["ICUSTAY_ID"])
     chartevents.loc[:, "ICUSTAY_ID"] = chartevents["ICUSTAY_ID"].astype(int)
