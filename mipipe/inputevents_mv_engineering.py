@@ -2,8 +2,10 @@ import pandas as pd
 from mipipe.utils import *
 
 
+
+
 @print_completion
-def process_convert_rateuom_into_hour(inputevents_o: pd.DataFrame) -> pd.DataFrame:
+def process_rateuom_into_hour_unit(inputevents_o: pd.DataFrame) -> pd.DataFrame:
     """
 
     1) Integrate **/kg into the unit and remove it
@@ -38,6 +40,25 @@ def process_convert_rateuom_into_hour(inputevents_o: pd.DataFrame) -> pd.DataFra
 
 def process_T_cohort(inputevents: pd.DataFrame)->pd.DataFrame:
 
+    return inputevents
+
+
+def process_sync_amountuom_to_rateuom(inputevents: pd.DataFrame)->pd.DataFrame:
+
+    return inputevents
+
+
+@print_completion
+def filter_remove_error(inputevents: pd.DataFrame) -> pd.DataFrame:
+    inputevents = inputevents[inputevents["STATUS"] != "Rewritten"]
+    inputevents = inputevents[inputevents["AMOUNT"] > 0]
+    return inputevents
+
+
+@print_completion
+def filter_remove_no_ICUSTAY_ID(inputevents: pd.DataFrame) -> pd.DataFrame:
+    inputevents = inputevents.dropna(subset=["ICUSTAY_ID"])
+    inputevents.loc[:, "ICUSTAY_ID"] = inputevents["ICUSTAY_ID"].astype(int)
     return inputevents
 
 

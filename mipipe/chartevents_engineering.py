@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from mipipe.utils import print_completion
+from mipipe.utils import *
 
 
 @print_completion
@@ -21,7 +21,7 @@ def process_aggregator(chartevents: pd.DataFrame, patients_T_info: pd.DataFrame,
 
     grouped = chartevents.groupby("ICUSTAY_ID")
     combined_results = grouped.apply(
-        lambda group: _aggregate_hourly(group, patients_T_info[patients_T_info["ICUSTAY_ID"] == group.name],
+        lambda group: _aggregate_by_T(group, patients_T_info[patients_T_info["ICUSTAY_ID"] == group.name],
                                         statistics),
         include_groups=False)
     if "index" in combined_results.columns:
@@ -57,7 +57,7 @@ def process_interval_shift_alignment(chartevents: pd.DataFrame,
         columns = [("ICUSTAY_ID", ""), ("T", "")] + item_columns(chartevents, items)
         chartevents_c = chartevents[columns].copy()  # filter items by the same interval
         if intv_h == 1:
-            # intv_h = 1 : no change needed because already aggregated by hour at chartevents_aggregator
+            # no change needed because already aggregated by hour at chartevents_aggregator
             chartevents_c["T_group"] = chartevents_c[("T")]  # make 'T_group' column for merge
         else:
             chartevents_c = _T_intervel_shift_alignment(chartevents_c, intv_h)
@@ -125,7 +125,7 @@ def process_group_variables(chartevents: pd.DataFrame) -> pd.DataFrame:
     return chartevents
 
 
-def _aggregate_hourly(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
+def _aggregate_by_T(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
                       statistics: list[str] = None) -> pd.DataFrame:
     """
     example:
@@ -137,11 +137,7 @@ def _aggregate_hourly(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
     :return:
     """
 
-    def map_T_value(charttime, t_info):
-        for index, row in t_info.iterrows():
-            if charttime in row["T_range"]:
-                return row["T"]
-        return -1
+
 
     icustay_id = icu_patient.name
     t_info = patient_T_info

@@ -1,10 +1,9 @@
 import mipipe.patient_static_engineering as patientengine
+from mipipe.mimic_preprocessor import MIMICPreprocessor
 
-
-class PatientStatic:
+class PatientStatic(MIMICPreprocessor):
     def __init__(self):
-        self.data = None
-        self.patients_T_info = None
+        super().__init__()
 
     def load(self, data):
         self.data = data.copy()

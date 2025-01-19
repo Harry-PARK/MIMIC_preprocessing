@@ -12,7 +12,6 @@ class Chartevents(MIMICPreprocessor):
         super().__init__()
         self.item_desc_info = None
         self.item_interval_info = None
-        self.patients_T_info = None
 
     def load(self, df: pd.DataFrame, patients_T_info: pd.DataFrame = None):
         self.data = df.copy().sort_values(by=["ICUSTAY_ID", "CHARTTIME"])
@@ -45,6 +44,7 @@ class Chartevents(MIMICPreprocessor):
             print("Processing...")
             self.data = chartengine.process_group_variables(self.data)  # combine some variables
             self.update_info()
+            # data structure will be changed by pivoting after the code below
             self.data = chartengine.process_aggregator(self.data, self.patients_T_info, statistics)  # all aggregated at one hour intervals
             self.data = chartengine.process_interval_shift_alignment(self.data,
                                                              self.item_interval_info)  # aggregate at 4, 24 hours intervals

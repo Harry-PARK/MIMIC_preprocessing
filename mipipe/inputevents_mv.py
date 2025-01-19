@@ -12,25 +12,35 @@ class InputeventsMV(MIMICPreprocessor):
         super().__init__()
 
 
-    def load(self, df: pd.DataFrame):
+    def load(self, df: pd.DataFrame, patients_T_info: pd.DataFrame = None):
         self.data = df.copy().sort_values(by=["ICUSTAY_ID", "STARTTIME"])
+        self.patients_T_info = patients_T_info
         self.filtered = False
         self.processed = False
 
 
     def filter(self):
-        pass
+        if not self.filtered:
+            print("-----------------------------------")
+            print("Filtering...")
+            self.data = inputengine.filter_remove_no_ICUSTAY_ID(self.data)
+            self.data = inputengine.filter_remove_error(self.data)
+            self.filtered = True
+            print("Filtering Complete!")
+        else:
+            print("Already filtered")
 
 
-    def process(self, statistics: list[str] = None, filter_skip: bool = False):
+    def process(self, filter_skip: bool = False):
         if not self.processed:
             if not self.filtered and not filter_skip:
                 self.filter()
             print("-----------------------------------")
             print("Processing...")
-            self.data = inputengine.process_convert_rateuom_into_hour(self.data)
+            self.data = inputengine.process_rateuom_into_hour_unit(self.data)
 
             self.processed = True
             print("Processing Complete!")
         else:
             print("Already processed")
+
