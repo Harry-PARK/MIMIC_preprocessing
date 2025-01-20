@@ -1,19 +1,22 @@
 import pandas as pd
 import mipipe.chartevents_engineering  as chartengine
+from mipipe.utils import *
 from mipipe.config import Config
 from mipipe.mimic_preprocessor import MIMICPreprocessor
 
 
+
 class Chartevents(MIMICPreprocessor):
 
-    required_columns = "ICUSTAY_ID, ITEMID, CHARTTIME, VALUE, VALUENUM, VALUEUOM, ERROR"
+    required_column = "ICUSTAY_ID, ITEMID, CHARTTIME, VALUE, VALUENUM, VALUEUOM, ERROR"
+    required_column_list = required_column.split(", ")
 
     def __init__(self):
         super().__init__()
         self.item_desc_info = None
         self.item_interval_info = None
 
-    def load(self, df: pd.DataFrame, patients_T_info: pd.DataFrame = None):
+    def load(self, df: pd.DataFrame, patients_T_info: pd.DataFrame):
         self.data = df.copy().sort_values(by=["ICUSTAY_ID", "CHARTTIME"])
         self.patients_T_info = patients_T_info
         self.filtered = False
@@ -26,6 +29,7 @@ class Chartevents(MIMICPreprocessor):
             print("-----------------------------------")
             print("Filtering...")
             d_labitems = Config.get_labitems()
+            self.data = filter_leave_required_columns_only(self.data, Chartevents.required_column_list)
             self.data = chartengine.filter_remove_no_ICUSTAY_ID(self.data)  # filter out rows without ICUSTAY_ID
             self.data = chartengine.filter_remove_error(self.data)
             self.data = chartengine.filter_remove_labitems(self.data, d_labitems)
@@ -64,3 +68,5 @@ class Chartevents(MIMICPreprocessor):
 
     def save(self, path):
         pass
+
+
