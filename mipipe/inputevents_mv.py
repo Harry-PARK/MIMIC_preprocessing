@@ -47,7 +47,9 @@ class InputeventsMV(MIMICPreprocessor):
             print("-----------------------------------")
             print("Processing...")
             self.data = inputengine.process_rateuom_into_hour_unit(self.data)
+
             self.data = inputengine.process_unite_uom_by_D_ITEMS(self.data, Config.get_D_ITEMS())
+
             self.data = inputengine.process_transform_T_cohort(self.data, self.patients_T_info, parallel=True)
             self.processed = True
             print("Processing Complete!")

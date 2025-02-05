@@ -43,9 +43,9 @@ def process_rateuom_into_hour_unit(inputevents_o: pd.DataFrame) -> pd.DataFrame:
     return inputevents
 
 
-#################################################### process_transform_T_cohort ####################################################
+#################################################### _process_transform_T_cohort_ratio ####################################################
 @print_completion
-def process_transform_T_cohort(inputevents: pd.DataFrame, patients_T_info: pd.DataFrame, parallel=False) -> pd.DataFrame:
+def process_transform_T_cohort_ratio(inputevents: pd.DataFrame, patients_T_info: pd.DataFrame, parallel=False) -> pd.DataFrame:
     """
     Transform inputevents to cohort for all ICUSTAY_ID
 
@@ -63,19 +63,19 @@ def process_transform_T_cohort(inputevents: pd.DataFrame, patients_T_info: pd.Da
             for idx, icu_groups in enumerate(icustay_id_groups):
                 inputevents_group = inputevents[inputevents["ICUSTAY_ID"].isin(icu_groups)]
                 patients_T_info_group = patients_T_info[patients_T_info["ICUSTAY_ID"].isin(icu_groups)]
-                future = executor.submit(_process_transform_T_cohort,
+                future = executor.submit(_process_transform_T_cohort_ratio,
                                               inputevents_group,
                                               patients_T_info_group)
                 futures.append(future)
         results = [future.result() for future in futures]
         results = pd.concat(results)
     else:
-        results = _process_transform_T_cohort(inputevents, patients_T_info)
+        results = _process_transform_T_cohort_ratio(inputevents, patients_T_info)
 
     return results
 
 
-def _process_transform_T_cohort(inputevents: pd.DataFrame, patients_T_info: pd.DataFrame) -> pd.DataFrame:
+def _process_transform_T_cohort_ratio(inputevents: pd.DataFrame, patients_T_info: pd.DataFrame) -> pd.DataFrame:
     results = []
     for index, group in inputevents.groupby("ICUSTAY_ID"):
         T_info = patients_T_info[patients_T_info["ICUSTAY_ID"] == index]
