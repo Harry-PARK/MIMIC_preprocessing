@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+from mipipe.config import Config
 from mipipe.utils import *
 
 
@@ -207,8 +208,9 @@ def _T_intervel_shift_alignment(chartevents: pd.DataFrame, intv_h: int) -> pd.Da
 
 
 @print_completion
-def filter_remove_labitems(chartevents: pd.DataFrame, labitems) -> pd.DataFrame:
-    return chartevents[~chartevents["ITEMID"].isin(labitems)]
+def filter_remove_labitems(chartevents: pd.DataFrame) -> pd.DataFrame:
+    d_labitems = Config.get_D_LABITEMS()["ITEMID"]
+    return chartevents[~chartevents["ITEMID"].isin(d_labitems)]
 
 
 @print_completion

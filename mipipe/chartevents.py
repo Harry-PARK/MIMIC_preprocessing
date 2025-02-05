@@ -28,11 +28,10 @@ class Chartevents(MIMICPreprocessor):
         if not self.filtered:
             print("-----------------------------------")
             print("Filtering...")
-            d_labitems = Config.get_labitems()
-            self.data = filter_leave_required_columns_only(self.data, Chartevents.required_column_list)
+            self.data = filter_remove_unassociated_columns(self.data, Chartevents.required_column_list)
             self.data = chartengine.filter_remove_no_ICUSTAY_ID(self.data)  # filter out rows without ICUSTAY_ID
             self.data = chartengine.filter_remove_error(self.data)
-            self.data = chartengine.filter_remove_labitems(self.data, d_labitems)
+            self.data = chartengine.filter_remove_labitems(self.data)
             self.update_info()
             self.filtered = True
             print("Filtering Complete!")

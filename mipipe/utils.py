@@ -21,9 +21,9 @@ def prettify_time(total_seconds:float):
     if total_seconds < 60:
         print(f"{total_seconds:.2f}s")
     elif total_seconds < 3600:
-        print(f"{total_seconds//60}m {total_seconds%60}s")
+        print(f"{int(total_seconds//60)}m {total_seconds%60:.2f}s")
     else:
-        print(f"{total_seconds//3600}h {total_seconds//60}m {total_seconds%60}s")
+        print(f"{int(total_seconds//3600)}h {int((total_seconds%3600)//60)}m {total_seconds%60:.2f}s")
 
 
 def map_T_value(row_time, t_info:pd.DataFrame):
@@ -36,6 +36,6 @@ def map_T_value(row_time, t_info:pd.DataFrame):
 
 
 @print_completion
-def filter_leave_required_columns_only(data_df:pd.DataFrame, required_column_list:list):
+def filter_remove_unassociated_columns(data_df:pd.DataFrame, required_column_list:list):
     data_df = data_df.loc[:, required_column_list]
     return data_df

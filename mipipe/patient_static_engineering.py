@@ -40,6 +40,6 @@ def make_patients_T_info(patients: pd.DataFrame) -> pd.DataFrame:
 
     # 리스트를 데이터프레임으로 변환
     final_df = pd.DataFrame(results)
-
+    final_df = final_df.sort_values(by=['ICUSTAY_ID', 'T'])
     # 결과 출력
     return final_df
