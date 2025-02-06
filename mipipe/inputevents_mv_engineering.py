@@ -1,12 +1,5 @@
-import numpy as np
-import pandas as pd
-
 from mipipe import Config
 from mipipe.utils import *
-from tqdm import tqdm
-
-import multiprocessing as mp
-from concurrent.futures import ProcessPoolExecutor
 
 
 @print_completion
@@ -30,12 +23,14 @@ def process_rateuom_into_hour_unit(inputevents_o: pd.DataFrame) -> pd.DataFrame:
         if unit is None:
             continue
         unit_filter = inputevents["RATEUOM"] == unit
-        if "/kg/min"in unit:
-            inputevents.loc[unit_filter, "ORIGINALRATE"] = inputevents.loc[unit_filter, "ORIGINALRATE"] * inputevents.loc[unit_filter, "PATIENTWEIGHT"]
+        if "/kg/min" in unit:
+            inputevents.loc[unit_filter, "ORIGINALRATE"] = inputevents.loc[unit_filter, "ORIGINALRATE"] * \
+                                                           inputevents.loc[unit_filter, "PATIENTWEIGHT"]
             inputevents.loc[unit_filter, "ORIGINALRATE"] *= 60
             inputevents.loc[unit_filter, "RATEUOM"] = unit.replace("kg/min", "hour")
         elif "/kg/" in unit:
-            inputevents.loc[unit_filter, "ORIGINALRATE"] = inputevents.loc[unit_filter, "ORIGINALRATE"] * inputevents.loc[unit_filter, "PATIENTWEIGHT"]
+            inputevents.loc[unit_filter, "ORIGINALRATE"] = inputevents.loc[unit_filter, "ORIGINALRATE"] * \
+                                                           inputevents.loc[unit_filter, "PATIENTWEIGHT"]
             inputevents.loc[unit_filter, "RATEUOM"] = unit.replace("kg/", "")
         elif "min" in unit:
             inputevents.loc[unit_filter, "ORIGINALRATE"] *= 60
@@ -43,9 +38,10 @@ def process_rateuom_into_hour_unit(inputevents_o: pd.DataFrame) -> pd.DataFrame:
     return inputevents
 
 
-#################################################### _process_transform_T_cohort_ratio ####################################################
+#################################################### process_transform_T_cohort_ratio ####################################################
 @print_completion
-def process_transform_T_cohort_ratio(inputevents: pd.DataFrame, patients_T_info: pd.DataFrame, parallel=False) -> pd.DataFrame:
+def process_transform_T_cohort(inputevents: pd.DataFrame, patients_T_info: pd.DataFrame,
+                               parallel=False) -> pd.DataFrame:
     """
     Transform inputevents to cohort for all ICUSTAY_ID
 
@@ -63,19 +59,19 @@ def process_transform_T_cohort_ratio(inputevents: pd.DataFrame, patients_T_info:
             for idx, icu_groups in enumerate(icustay_id_groups):
                 inputevents_group = inputevents[inputevents["ICUSTAY_ID"].isin(icu_groups)]
                 patients_T_info_group = patients_T_info[patients_T_info["ICUSTAY_ID"].isin(icu_groups)]
-                future = executor.submit(_process_transform_T_cohort_ratio,
-                                              inputevents_group,
-                                              patients_T_info_group)
+                future = executor.submit(_process_transform_T_cohort,
+                                         inputevents_group,
+                                         patients_T_info_group)
                 futures.append(future)
         results = [future.result() for future in futures]
         results = pd.concat(results)
     else:
-        results = _process_transform_T_cohort_ratio(inputevents, patients_T_info)
+        results = _process_transform_T_cohort(inputevents, patients_T_info)
 
     return results
 
 
-def _process_transform_T_cohort_ratio(inputevents: pd.DataFrame, patients_T_info: pd.DataFrame) -> pd.DataFrame:
+def _process_transform_T_cohort(inputevents: pd.DataFrame, patients_T_info: pd.DataFrame) -> pd.DataFrame:
     results = []
     for index, group in inputevents.groupby("ICUSTAY_ID"):
         T_info = patients_T_info[patients_T_info["ICUSTAY_ID"] == index]
@@ -113,7 +109,8 @@ def transform_to_cohort(inputevents_groupby: pd.DataFrame, T_info: pd.DataFrame)
         return pd.DataFrame()
 
     result_df = pd.concat(result)
-    cohort = result_df.pivot_table(index="T", columns="ITEMID", values="AMOUNT", aggfunc="sum")
+    cohort = result_df.pivot_table(index="T", columns="ITEMID", values="AMOUNT",
+                                   aggfunc="sum")  # this AMOUNT indicates calculated ORIGINALAMOUNT and ORIGINALRATE
     # sum as aggfunc: if there are multiple values in one cell, sum them
     # that means two un-continuous ITEMID is in the same T.
     # example) renew the same ITEMID in the same T -> it will cause un-continuous ITEMID in the same T.
@@ -149,7 +146,6 @@ def _continuous_cohort(row: pd.Series, T_info: pd.DataFrame) -> pd.DataFrame:
     starttime = row["STARTTIME"]
     endtime = row["ENDTIME"]
 
-
     if starttime >= T_info.iloc[-1]["T_range"].right or endtime < T_info.iloc[0]["T_range"].left:
         return pd.DataFrame()
 
@@ -166,10 +162,10 @@ def _continuous_cohort(row: pd.Series, T_info: pd.DataFrame) -> pd.DataFrame:
     administer = []
     for i in range(start_t, end_t + 1):
         T_range = T_info[T_info["T"] == i]["T_range"].values[0]
-        overlap = calculate_interval_overlapping_time(inputevents_interval, T_range)
-        if overlap > 0:
+        overlap_percent = calculate_interval_overlapping(T_range, inputevents_interval, "percentage")
+        if overlap_percent > 0.5:  # inputevents more than 30 minutes
             T.append(i)
-            administer.append(originalrate * 1 / 60 * overlap)
+            administer.append(originalrate)
 
     row_cohort = pd.DataFrame({
         "T": T,
@@ -188,21 +184,69 @@ def calculate_rate_by_hour_unit(row: pd.Series) -> float:
     return originalrate
 
 
-def calculate_interval_overlapping_time(interval1, interval2) -> float:
+def calculate_interval_overlapping(interval1, interval2, result_value) -> float:
+    """
+    Calculate overlapping information of interval2 in interval1
+
+    method = [percentage, time]
+    percentage: return percentage of overlapping time in interval1 -> 0.85
+    time: return overlapping time in seconds -> 8400 (2h 20m)
+
+    :param interval1: base interval (e.g. T_range)
+    :param interval2: target interval (e.g. inputevents_interval)
+    :param result_value: [percentage, time]
+    :return: overlapping information of interval2 in interval1
+    """
     overlap_start = max(interval1.left, interval2.left)
     overlap_end = min(interval1.right, interval2.right)
 
     if overlap_start < overlap_end:  # if overlap exists
         overlap_length = overlap_end - overlap_start
-        return overlap_length.total_seconds() / 60  # return minutes
+        if result_value == "time":
+            return overlap_length.total_seconds()
+        elif result_value == "percentage":
+            interval1_length = interval1.right - interval1.left
+            return overlap_length.total_seconds() / interval1_length.total_seconds()
     else:
-        return 0
+        return 0.0
+
+
 ####################################################################################################################################
-
-
-#################################################### process_unite_uom_by_D_ITEMS ####################################################
+#################################################### process_split_ITEMID_by_unit ####################################################
 @print_completion
-def process_unite_uom_by_D_ITEMS(inputevents: pd.DataFrame, d_items: pd.DataFrame) -> pd.DataFrame:
+def process_split_ITEMID_by_unit(inputevents: pd.DataFrame) -> pd.DataFrame:
+    inputevents["ITEMID"] = inputevents["ITEMID"].astype(float)
+    itemids = inputevents["ITEMID"].unique()
+    results = []
+
+    for itemid in itemids:
+        df = inputevents[inputevents["ITEMID"] == itemid]
+        amountuoms = df[df["ORDERCATEGORYDESCRIPTION"].isin(["Bolus", "Drug Push", "Non Iv Meds"])]
+        sub = 0.0
+        if amountuoms["AMOUNTUOM"].nunique() > 1:
+            for unit in amountuoms["AMOUNTUOM"].unique():
+                temp = df[df["AMOUNTUOM"] == unit]
+                temp.loc[:, "ITEMID"] += sub
+                results.append(temp)
+                sub += 0.1
+        else:
+            results.append(df)
+        rateuoms = df[df["ORDERCATEGORYDESCRIPTION"].isin(["Continuous IV", "Continuous Med"])]
+        if rateuoms["RATEUOM"].nunique() > 1:
+            for unit in rateuoms["RATEUOM"].unique():
+                temp = df[df["RATEUOM"] == unit]
+                temp["ITEMID"] = temp["ITEMID"] + sub
+                results.append(temp)
+                sub += 0.1
+        else:
+            results.append(df)
+
+    return pd.concat(results, ignore_index=True).sort_values(by=["ICUSTAY_ID", "STARTTIME"])
+
+####################################################################################################################################
+#################################################### process_unite_convertable_uom_by_D_ITEMS ####################################################
+@print_completion
+def process_unite_convertable_uom_by_D_ITEMS(inputevents: pd.DataFrame, d_items: pd.DataFrame) -> pd.DataFrame:
     """
     unite unit of measurement (uom) to standard unit for one ITEMID
 
@@ -223,12 +267,13 @@ def process_unite_uom_by_D_ITEMS(inputevents: pd.DataFrame, d_items: pd.DataFram
 
     for item_id, standard_unit in d_items.items():
         inputevents_item_filtered = inputevents[inputevents["ITEMID"] == item_id]
-        amount_items = inputevents_item_filtered[inputevents_item_filtered["ORDERCATEGORYDESCRIPTION"].isin(["Bolus", "Drug Push", "Non Iv Meds"])]
-        rate_items = inputevents_item_filtered[inputevents_item_filtered["ORDERCATEGORYDESCRIPTION"].isin(["Continuous IV", "Continuous Med"])]
+        amount_items = inputevents_item_filtered[
+            inputevents_item_filtered["ORDERCATEGORYDESCRIPTION"].isin(["Bolus", "Drug Push", "Non Iv Meds"])]
+        rate_items = inputevents_item_filtered[
+            inputevents_item_filtered["ORDERCATEGORYDESCRIPTION"].isin(["Continuous IV", "Continuous Med"])]
 
-
-        amount_items = vectorized_unite_uom(amount_items, "ORIGINALAMOUNT", "AMOUNTUOM", standard_unit)
-        rate_items = vectorized_unite_uom(rate_items, "ORIGINALRATE", "RATEUOM", standard_unit)
+        amount_items = unite_convertable_uom(amount_items, "ORIGINALAMOUNT", "AMOUNTUOM", standard_unit)
+        rate_items = unite_convertable_uom(rate_items, "ORIGINALRATE", "RATEUOM", standard_unit)
 
         if not amount_items.empty:
             united_frames.append(amount_items)
@@ -238,7 +283,7 @@ def process_unite_uom_by_D_ITEMS(inputevents: pd.DataFrame, d_items: pd.DataFram
     return pd.concat(united_frames, ignore_index=True).sort_values(by=["ICUSTAY_ID", "STARTTIME"])
 
 
-def vectorized_unite_uom(df: pd.DataFrame, value_column: str, uom_column: str, standard_unit: str):
+def unite_convertable_uom(df: pd.DataFrame, value_column: str, uom_column: str, standard_unit: str) -> pd.DataFrame:
     """
     unite unit of measurement (uom) to standard unit for one ITEMID
 
@@ -249,45 +294,48 @@ def vectorized_unite_uom(df: pd.DataFrame, value_column: str, uom_column: str, s
     :return:
     """
 
-    conversion_factors = {
-    # (current_unit --> target_unit): factor
-    ("mg", "mcg"): 1000,
-    ("grams", "mcg"): 1_000_000,
-    ("mcg", "mg"): 1/1000,
-    ("grams", "mg"): 1000,
-    ("mcg", "grams"): 1/1_000_000,
-    ("mg", "grams"): 1/1000,
-
-    ("ml", "ul"): 1000,
-    ("l", "ul"): 1_000_000,
-    ("ul", "ml"): 1/1000,
-    ("l", "ml"): 1000,
-    ("ul", "l"): 1/1_000_000,
-    ("ml", "l"): 1/1000,
-    }
+    convertable_units = ["mcg", "mg", "grams", "ml", "l", "ul"]
     standard_unit = standard_unit.lower()
+    df_units = set(df[uom_column].unique())
 
-    if standard_unit in ["dose", "units", "meq."]:
-        # conversion unavailable
-        df = df[df[uom_column].str.contains(standard_unit)].copy()
-        return df
+    if standard_unit not in convertable_units:
+        if {"ul", "ml", "l"} & df_units:
+            standard_unit = "ml"
+        elif {"mcg", "mg", "grams"} & df_units:
+            standard_unit = "mg"
+        else:
+            return df
 
-    df = df[~df[uom_column].str.contains(r"dose|units|meq.", case=False)].copy()
+    conversion_factors = {
+        # (current_unit --> target_unit): factor
+        ("mg", "mcg"): 1000,
+        ("grams", "mcg"): 1_000_000,
+        ("mcg", "mg"): 1 / 1000,
+        ("grams", "mg"): 1000,
+        ("mcg", "grams"): 1 / 1_000_000,
+        ("mg", "grams"): 1 / 1000,
+
+        ("ml", "ul"): 1000,
+        ("l", "ul"): 1_000_000,
+        ("ul", "ml"): 1 / 1000,
+        ("l", "ml"): 1000,
+        ("ul", "l"): 1 / 1_000_000,
+        ("ml", "l"): 1 / 1000,
+    }
 
     for (current_unit, target_unit), factor in conversion_factors.items():
         if target_unit != standard_unit:
             continue
-        # mask = df[uom_column].str.contains(current_unit)
-        mask = df[uom_column].str[:len(current_unit)] == current_unit
-        df.loc[mask, value_column] = df.loc[mask, value_column] * factor
+        mask = df[uom_column].str.startswith(current_unit)
+        df.loc[mask, value_column] *= factor
         df.loc[mask, uom_column] = df.loc[mask, uom_column].str.replace(current_unit, standard_unit)
     return df
+
 
 ####################################################################################################################################
 
 
-
-def process_rateuom_convert_into_gram(inputevents: pd.DataFrame)->pd.DataFrame:
+def process_rateuom_convert_into_gram(inputevents: pd.DataFrame) -> pd.DataFrame:
     def apply_standard_unit(row):
         originalrate = row["ORIGINALRATE"]
         rateuom = row["RATEUOM"]
@@ -301,6 +349,7 @@ def process_rateuom_convert_into_gram(inputevents: pd.DataFrame)->pd.DataFrame:
             row["ORIGINALRATE"] = originalrate * 1000
             row["RATEUOM"] = rateuom.replace("grams", "mg")
             return row
+
     d_items = Config.get_D_ITEMS()["ITEMID"]
     item_standard_unit = dict(zip(d_items["ITEMID"], d_items["UNITNAME"]))
 
@@ -341,6 +390,3 @@ def filter_remove_continuous_uom_missing(inputevents: pd.DataFrame) -> pd.DataFr
             inputevents['RATEUOM'].isnull()))
     ]
     return inputevents
-
-
-
