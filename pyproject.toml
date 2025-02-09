@@ -11,6 +11,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 license-file = "LICENSE"
+dynamic = ["version"]
 
 [project.urls]
 Homepage = "https://github.com/Harry-PARK/MIMIC_preprocessing"
