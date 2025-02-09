@@ -1,9 +1,9 @@
 import pandas as pd
 
-import mipipe.inputevents_mv_engineering as inputengine
-from mipipe.utils import *
-from mipipe.config import Config
-from mipipe.mimic_preprocessor import MIMICPreprocessor
+import openmimic.inputevents_mv_engineering as inputengine
+from openmimic.utils import *
+from openmimic.config import Config
+from openmimic.mimic_preprocessor import MIMICPreprocessor
 
 class InputeventsMV(MIMICPreprocessor):
 

@@ -1,5 +1,5 @@
-from mipipe import Config
-from mipipe.utils import *
+from openmimic import Config
+from openmimic.utils import *
 
 
 @print_completion
