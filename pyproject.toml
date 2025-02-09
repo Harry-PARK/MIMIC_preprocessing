@@ -18,7 +18,7 @@ Homepage = "https://github.com/Harry-PARK/MIMIC_preprocessing"
 Issues = "https://github.com/Harry-PARK/MIMIC_preprocessing/issues"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
