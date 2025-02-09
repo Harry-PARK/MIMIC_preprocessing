@@ -28,13 +28,16 @@ class Chartevents(MIMICPreprocessor):
         if not self.filtered:
             print("-----------------------------------")
             print("Filtering...")
+            before_len = len(self.data)
             self.data = filter_remove_unassociated_columns(self.data, Chartevents.required_column_list)
             self.data = chartengine.filter_remove_no_ICUSTAY_ID(self.data)  # filter out rows without ICUSTAY_ID
             self.data = chartengine.filter_remove_error(self.data)
             self.data = chartengine.filter_remove_labitems(self.data)
+            after_len = len(self.data)
             self.update_info()
             self.filtered = True
             print("Filtering Complete!")
+            print(f"=> Before: {before_len:,}, After: {after_len:,} : {after_len / before_len * 100:.2f}% remained.")
         else:
             print("Already filtered")
 

@@ -40,7 +40,7 @@ def process_interval_shift_alignment(chartevents: pd.DataFrame,
     It automatically choose aggregation methods by searching for the columns with 'mean', 'min', 'max'
 
 
-    :param chartevents: chartevents_aggregator result
+    :param chartevents: process_aggregator result
     :param item_interval_info: {1: [220179, 220210], 4: [220179, 220210], 24: [220179, 220210]}
     :return:
     """
@@ -58,7 +58,7 @@ def process_interval_shift_alignment(chartevents: pd.DataFrame,
         columns = [("ICUSTAY_ID", ""), ("T", "")] + item_columns(chartevents, items)
         chartevents_c = chartevents[columns].copy()  # filter items by the same interval
         if intv_h == 1:
-            # no change needed because already aggregated by hour at chartevents_aggregator
+            # no change needed because already aggregated by hour at process_aggregator
             chartevents_c["T_group"] = chartevents_c[("T")]  # make 'T_group' column for merge
         else:
             chartevents_c = _T_intervel_shift_alignment(chartevents_c, intv_h)
@@ -129,6 +129,7 @@ def process_group_variables(chartevents: pd.DataFrame) -> pd.DataFrame:
 def _aggregate_by_T(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
                       statistics: list[str] = None) -> pd.DataFrame:
     """
+
     example:
     mip.chartevents_aggregator(icu_patient, patients_static.patients_T_info, ["mean", "min"])
 
@@ -159,10 +160,8 @@ def _aggregate_by_T(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
     icu_agg.insert(0, "ICUSTAY_ID", icustay_id)
 
     icu_agg = icu_agg[icu_agg[('T', '')] != -1] # This code should be under 'Aggregate data' part to get the same MultiIndex from .agg(statistics)
-    if icu_agg.empty:
-        return icu_agg
-
-    if icu_agg["T"].max() < 1:
+    if icu_agg.empty or icu_agg["T"].max() < 1:
+        # if data is empty
         # if only data is less than 30 minutes (only 30 minutes data)
         return icu_agg
 
@@ -170,7 +169,7 @@ def _aggregate_by_T(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
     T_pool = set(range(0, icu_agg["T"].max()))
     T_diff = T_pool - set(icu_agg["T"])
 
-    # Fill NaN value at time of missing
+    # Fill NaN value at the time of missing
     temp_list = []
     for t in T_diff:
         new_row = {column: np.NaN for column in icu_agg.columns}
@@ -289,7 +288,7 @@ def interval_grouping(summary_frame: pd.DataFrame) -> dict[int, int]:
     """
 
     item_desc = summary_frame.copy()
-    item_desc["cluster"] = 0
+    item_desc["cluster"] = 0 # initialize cluster column
     item_desc["50%"] = item_desc["50%"].round()
     index_helper = item_desc["50%"]
     item_desc.loc[index_helper <= 1, "cluster"] = 1

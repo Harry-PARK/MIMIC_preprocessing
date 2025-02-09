@@ -91,6 +91,7 @@ def transform_to_cohort(inputevents_groupby: pd.DataFrame, T_info: pd.DataFrame)
     :param T_info:
     :return:
     """
+    icustay_id = inputevents_groupby["ICUSTAY_ID"].values[0]
     result = []
     for row in inputevents_groupby.iterrows():
         row = row[1]
@@ -115,13 +116,33 @@ def transform_to_cohort(inputevents_groupby: pd.DataFrame, T_info: pd.DataFrame)
     # that means two un-continuous ITEMID is in the same T.
     # example) renew the same ITEMID in the same T -> it will cause un-continuous ITEMID in the same T.
     cohort = cohort.reset_index()
-    cohort["ICUSTAY_ID"] = inputevents_groupby["ICUSTAY_ID"].values[0]
+    cohort["ICUSTAY_ID"] = icustay_id
 
     cols = cohort.columns.tolist()
     cols = cols[-1:] + cols[:-1]
     cohort = cohort[cols]
 
-    return cohort
+
+    cohort = cohort[cohort["T"]>=0]
+
+    if cohort.empty or cohort["T"].max() < 1:
+        return cohort
+
+    # Fill missing time
+    T_pool = set(range(0, int(cohort["T"].max())))
+    T_diff = T_pool - set(cohort["T"])
+
+    # Fill NaN value at the time of missing
+    temp_list = []
+    for t in T_diff:
+        new_row = {column: np.NaN for column in cohort.columns}
+        new_row["T"] = t
+        new_row["ICUSTAY_ID"] = icustay_id
+        temp_list.append(new_row)
+    cohort = pd.concat([cohort, pd.DataFrame(temp_list)], ignore_index=True)
+    cohort = cohort.sort_values(by=["T"])
+
+    return cohort.reset_index(drop=True)
 
 
 def _one_take_cohort(row: pd.Series, T_info: pd.DataFrame) -> pd.DataFrame:
