@@ -1,8 +1,8 @@
 import pandas as pd
-import mipipe.chartevents_engineering  as chartengine
-from mipipe.utils import *
-from mipipe.config import Config
-from mipipe.mimic_preprocessor import MIMICPreprocessor
+import openmimic.chartevents_engineering  as chartengine
+from openmimic.utils import *
+from openmimic.config import Config
+from openmimic.mimic_preprocessor import MIMICPreprocessor
 
 
 

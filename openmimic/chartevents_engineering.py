@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from mipipe.config import Config
-from mipipe.utils import *
+from openmimic.config import Config
+from openmimic.utils import *
 
 
 @print_completion

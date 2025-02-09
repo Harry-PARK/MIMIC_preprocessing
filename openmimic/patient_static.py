@@ -1,7 +1,7 @@
 import pandas as pd
 
-import mipipe.patient_static_engineering as patientengine
-from mipipe.mimic_preprocessor import MIMICPreprocessor
+import openmimic.patient_static_engineering as patientengine
+from openmimic.mimic_preprocessor import MIMICPreprocessor
 
 
 class PatientStatic(MIMICPreprocessor):
