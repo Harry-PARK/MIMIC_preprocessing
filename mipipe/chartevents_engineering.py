@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from mipipe.utils import print_completion
+from mipipe.config import Config
+from mipipe.utils import *
 
 
 @print_completion
@@ -21,7 +22,7 @@ def process_aggregator(chartevents: pd.DataFrame, patients_T_info: pd.DataFrame,
 
     grouped = chartevents.groupby("ICUSTAY_ID")
     combined_results = grouped.apply(
-        lambda group: _aggregate_hourly(group, patients_T_info[patients_T_info["ICUSTAY_ID"] == group.name],
+        lambda group: _aggregate_by_T(group, patients_T_info[patients_T_info["ICUSTAY_ID"] == group.name],
                                         statistics),
         include_groups=False)
     if "index" in combined_results.columns:
@@ -39,7 +40,7 @@ def process_interval_shift_alignment(chartevents: pd.DataFrame,
     It automatically choose aggregation methods by searching for the columns with 'mean', 'min', 'max'
 
 
-    :param chartevents: chartevents_aggregator result
+    :param chartevents: process_aggregator result
     :param item_interval_info: {1: [220179, 220210], 4: [220179, 220210], 24: [220179, 220210]}
     :return:
     """
@@ -57,7 +58,7 @@ def process_interval_shift_alignment(chartevents: pd.DataFrame,
         columns = [("ICUSTAY_ID", ""), ("T", "")] + item_columns(chartevents, items)
         chartevents_c = chartevents[columns].copy()  # filter items by the same interval
         if intv_h == 1:
-            # intv_h = 1 : no change needed because already aggregated by hour at chartevents_aggregator
+            # no change needed because already aggregated by hour at process_aggregator
             chartevents_c["T_group"] = chartevents_c[("T")]  # make 'T_group' column for merge
         else:
             chartevents_c = _T_intervel_shift_alignment(chartevents_c, intv_h)
@@ -125,9 +126,10 @@ def process_group_variables(chartevents: pd.DataFrame) -> pd.DataFrame:
     return chartevents
 
 
-def _aggregate_hourly(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
+def _aggregate_by_T(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
                       statistics: list[str] = None) -> pd.DataFrame:
     """
+
     example:
     mip.chartevents_aggregator(icu_patient, patients_static.patients_T_info, ["mean", "min"])
 
@@ -137,11 +139,7 @@ def _aggregate_hourly(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
     :return:
     """
 
-    def map_T_value(charttime, t_info):
-        for index, row in t_info.iterrows():
-            if charttime in row["T_range"]:
-                return row["T"]
-        return -1
+
 
     icustay_id = icu_patient.name
     t_info = patient_T_info
@@ -162,10 +160,8 @@ def _aggregate_hourly(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
     icu_agg.insert(0, "ICUSTAY_ID", icustay_id)
 
     icu_agg = icu_agg[icu_agg[('T', '')] != -1] # This code should be under 'Aggregate data' part to get the same MultiIndex from .agg(statistics)
-    if icu_agg.empty:
-        return icu_agg
-
-    if icu_agg["T"].max() < 1:
+    if icu_agg.empty or icu_agg["T"].max() < 1:
+        # if data is empty
         # if only data is less than 30 minutes (only 30 minutes data)
         return icu_agg
 
@@ -173,7 +169,7 @@ def _aggregate_hourly(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
     T_pool = set(range(0, icu_agg["T"].max()))
     T_diff = T_pool - set(icu_agg["T"])
 
-    # Fill NaN value at time of missing
+    # Fill NaN value at the time of missing
     temp_list = []
     for t in T_diff:
         new_row = {column: np.NaN for column in icu_agg.columns}
@@ -211,8 +207,9 @@ def _T_intervel_shift_alignment(chartevents: pd.DataFrame, intv_h: int) -> pd.Da
 
 
 @print_completion
-def filter_remove_labitems(chartevents: pd.DataFrame, labitems) -> pd.DataFrame:
-    return chartevents[~chartevents["ITEMID"].isin(labitems)]
+def filter_remove_labitems(chartevents: pd.DataFrame) -> pd.DataFrame:
+    d_labitems = Config.get_D_LABITEMS()["ITEMID"]
+    return chartevents[~chartevents["ITEMID"].isin(d_labitems)]
 
 
 @print_completion
@@ -291,7 +288,7 @@ def interval_grouping(summary_frame: pd.DataFrame) -> dict[int, int]:
     """
 
     item_desc = summary_frame.copy()
-    item_desc["cluster"] = 0
+    item_desc["cluster"] = 0 # initialize cluster column
     item_desc["50%"] = item_desc["50%"].round()
     index_helper = item_desc["50%"]
     item_desc.loc[index_helper <= 1, "cluster"] = 1

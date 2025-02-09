@@ -19,7 +19,6 @@ def make_patients_T_info(patients: pd.DataFrame) -> pd.DataFrame:
             else:
                 start = admission_time + pd.Timedelta(minutes=30) + pd.Timedelta(hours=(T - 1))
                 end = start + pd.Timedelta(hours=1)
-            # T_range = f"{start.strftime('%Y-%m-%d %H:%M:%S')} ~ {end.strftime('%Y-%m-%d %H:%M:%S')}"
             T_range = pd.Interval(left=start, right=end, closed='left')
             T_list.append({'T': T, 'T_range': T_range})
         return T_list
@@ -41,6 +40,6 @@ def make_patients_T_info(patients: pd.DataFrame) -> pd.DataFrame:
 
     # 리스트를 데이터프레임으로 변환
     final_df = pd.DataFrame(results)
-
+    final_df = final_df.sort_values(by=['ICUSTAY_ID', 'T'])
     # 결과 출력
     return final_df
