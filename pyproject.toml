@@ -1,5 +1,6 @@
 [project]
 name = "openmimic"
+versuib = "0.0.3"
 authors = [
   { name="Harry_PARK", email="airroketg@gmail.com" },
 ]
@@ -17,8 +18,5 @@ Homepage = "https://github.com/Harry-PARK/MIMIC_preprocessing"
 Issues = "https://github.com/Harry-PARK/MIMIC_preprocessing/issues"
 
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.hatch.version]
-source = "vcs"
