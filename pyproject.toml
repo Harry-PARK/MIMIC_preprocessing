@@ -1,17 +1,14 @@
 [project]
 name = "openmimic"
-version = "0.0.3"
 authors = [
   { name="Harry_PARK", email="airroketg@gmail.com" },
 ]
 description = "MIMIC-III preprocessing pipeline to make cohort"
 readme = "README.md"
 requires-python = ">=3.8"
-defendencies = [
+dependencies = [
     "pandas",
-    "numpy",
-    "functools",
-    "multiprocessing"
+    "numpy"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -24,5 +21,9 @@ Homepage = "https://github.com/Harry-PARK/MIMIC_preprocessing"
 Issues = "https://github.com/Harry-PARK/MIMIC_preprocessing/issues"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
