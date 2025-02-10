@@ -1,6 +1,5 @@
 [project]
 name = "openmimic"
-version = "0.0.3"
 authors = [
   { name="Harry_PARK", email="airroketg@gmail.com" },
 ]
@@ -22,3 +21,5 @@ Issues = "https://github.com/Harry-PARK/MIMIC_preprocessing/issues"
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
+[tool.hatch.version]
+source = "vcs"
