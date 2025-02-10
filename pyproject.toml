@@ -1,12 +1,18 @@
 [project]
 name = "openmimic"
-versuib = "0.0.3"
+version = "0.0.3"
 authors = [
   { name="Harry_PARK", email="airroketg@gmail.com" },
 ]
 description = "MIMIC-III preprocessing pipeline to make cohort"
 readme = "README.md"
 requires-python = ">=3.8"
+defendencies = [
+    "pandas",
+    "numpy",
+    "functools",
+    "multiprocessing"
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
