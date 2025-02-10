@@ -20,6 +20,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Clear pip cache
+        run: |
+          pip cache purge
+      
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -30,7 +35,8 @@ jobs:
       - name: Build release distributions using hatch
         run: |
           python -m pip install --upgrade pip
-          python -m pip install hatch hatch-vcs
+          python -m pip install hatch
+          python -m pip install hatch-vcs
           hatch build
 
       - name: Upload distributions
