@@ -1,6 +1,6 @@
 import pandas as pd
 
-class Config():
+class Config:
     mimic_path = None
 
     @staticmethod
