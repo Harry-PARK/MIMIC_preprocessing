@@ -49,14 +49,14 @@ def process_transform_T_cohort(inputevents: pd.DataFrame, patients_T_info: pd.Da
     :param patients_T_info:
     :return:
     """
-    cpu_load = int(mp.cpu_count() * 0.8)
+    cpu_count = int(mp.cpu_count() * 0.8)
     if parallel:
         futures = []
         icustay_id_unique = inputevents["ICUSTAY_ID"].unique()
-        icustay_id_groups = np.array_split(icustay_id_unique, cpu_load)
+        icustay_id_split = np.array_split(icustay_id_unique, cpu_count)
 
-        with ProcessPoolExecutor(max_workers=cpu_load) as executor:
-            for idx, icu_groups in enumerate(icustay_id_groups):
+        with ProcessPoolExecutor(max_workers=cpu_count) as executor:
+            for idx, icu_groups in enumerate(icustay_id_split):
                 inputevents_group = inputevents[inputevents["ICUSTAY_ID"].isin(icu_groups)]
                 patients_T_info_group = patients_T_info[patients_T_info["ICUSTAY_ID"].isin(icu_groups)]
                 future = executor.submit(_process_transform_T_cohort,
