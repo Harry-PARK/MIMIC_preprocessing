@@ -1,66 +1,7 @@
-from os import cpu_count
-
-import numpy as np
-import pandas as pd
-
 from openmimic.config import Config
 from openmimic.utils import *
 
 
-
-@print_completion
-def process_aggregator(chartevents: pd.DataFrame, patients_T_info: pd.DataFrame,
-                       statistics: list[str] = None, parallel=False) -> pd.DataFrame:
-    """
-    aggregate chartevents by hour and pivot table
-
-    example:
-    mip.chartevents_aggregator(chartevents, patients_static.patients_T_info, ["mean", "min"])
-
-    :param chartevents:
-    :param patients_T_info:
-    :param statistics:
-    :return:
-    """
-
-    cpu_count = int(mp.cpu_count() * 0.8)
-
-    if parallel:
-        futures = []
-        icustay_id_unique = chartevents["ICUSTAY_ID"].unique()
-        icustay_id_split = np.array_split(icustay_id_unique, cpu_count)
-
-        with ProcessPoolExecutor(max_workers=cpu_count) as executor:
-            for idx, icu_groups in enumerate(icustay_id_split):
-                chartevents_group = chartevents[chartevents["ICUSTAY_ID"].isin(icu_groups)]
-                patients_T_info_group = patients_T_info[patients_T_info["ICUSTAY_ID"].isin(icu_groups)]
-                future = executor.submit(_process_aggregator, chartevents_group, patients_T_info_group, statistics)
-
-                futures.append(future)
-        results = [future.result() for future in futures]
-        combined_results = pd.concat(results)
-    else:
-        combined_results = _process_aggregator(chartevents, patients_T_info, statistics)
-
-    # if "index" in combined_results.columns:
-    #     combined_results = combined_results.drop(columns="index")
-    # print(combined_results.columns)
-    # combined_results[("ICUSTAY_ID", "")] = combined_results["ICUSTAY_ID"].astype(int)
-
-    return combined_results.reset_index(drop=True)
-
-
-def _process_aggregator(chartevents: pd.DataFrame, patients_T_info: pd.DataFrame,
-                           statistics: list[str] = None) -> pd.DataFrame:
-    grouped = chartevents.groupby("ICUSTAY_ID")
-    combined_results = grouped.apply(
-        lambda group: _aggregate_by_T(group, patients_T_info[patients_T_info["ICUSTAY_ID"] == group.name],
-                                      statistics),
-        include_groups=False)
-    if "index" in combined_results.columns:
-        combined_results = combined_results.drop(columns="index")
-    combined_results[("ICUSTAY_ID", "")] = combined_results[("ICUSTAY_ID", "")].astype(int)
-    return combined_results.reset_index(drop=True)
 
 
 @print_completion
@@ -159,7 +100,7 @@ def process_group_variables_from_fiddle(chartevents: pd.DataFrame) -> pd.DataFra
 
 
 def _aggregate_by_T(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
-                      statistics: list[str] = None) -> pd.DataFrame:
+                    statistics: list[str] = None) -> pd.DataFrame:
     """
 
     example:
@@ -170,8 +111,6 @@ def _aggregate_by_T(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
     :param statistics:
     :return:
     """
-
-
 
     icustay_id = icu_patient.name
     t_info = patient_T_info
@@ -193,7 +132,8 @@ def _aggregate_by_T(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
     icu_agg = icu_copy.drop("CHARTTIME", axis=1).groupby("T").agg(statistics).reset_index()
     icu_agg.insert(0, "ICUSTAY_ID", icustay_id)
 
-    icu_agg = icu_agg[icu_agg[('T', '')] != -1] # This code should be under 'Aggregate data' part to get the same MultiIndex from .agg(statistics)
+    icu_agg = icu_agg[icu_agg[(
+    'T', '')] != -1]  # This code should be under 'Aggregate data' part to get the same MultiIndex from .agg(statistics)
     if icu_agg.empty or icu_agg["T"].max() < 1:
         # if data is empty
         # if only data is less than 30 minutes (only 30 minutes data)
@@ -215,6 +155,22 @@ def _aggregate_by_T(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
 
     return icu_agg.reset_index(drop=True)
 
+
+@print_completion
+@ParallelEHR('ICUSTAY_ID')
+def process_aggregator(chartevents: pd.DataFrame, patients_T_info: pd.DataFrame,
+                       statistics: list[str] = None) -> pd.DataFrame:
+    grouped = chartevents.groupby("ICUSTAY_ID")
+    combined_results = grouped.apply(
+        lambda group: _aggregate_by_T(group, patients_T_info[patients_T_info["ICUSTAY_ID"] == group.name],
+                                      statistics),
+        include_groups=False)
+    if "index" in combined_results.columns:
+        combined_results = combined_results.drop(columns="index")
+
+    if ("ICUSTAY_ID", "") in combined_results.columns:
+        combined_results[("ICUSTAY_ID", "")] = combined_results[("ICUSTAY_ID", "")].astype(int)
+    return combined_results.reset_index(drop=True)
 
 
 def _T_intervel_shift_alignment(chartevents: pd.DataFrame, intv_h: int) -> pd.DataFrame:
@@ -327,7 +283,7 @@ def interval_grouping(summary_frame: pd.DataFrame) -> dict[int, int]:
     """
 
     item_desc = summary_frame.copy()
-    item_desc["cluster"] = 0 # initialize cluster column
+    item_desc["cluster"] = 0  # initialize cluster column
     item_desc["50%"] = item_desc["50%"].round()
     index_helper = item_desc["50%"]
     item_desc.loc[index_helper <= 1, "cluster"] = 1

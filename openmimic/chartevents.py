@@ -51,10 +51,11 @@ class Chartevents(MIMICPreprocessor):
             self.data = chartengine.process_group_variables_from_fiddle(self.data)  # combine some variables
             # self.data = chartengine.process_group_variable_from_mimic_iii_extract(self.data)  # combine some variables
             self.update_info()
-            # self.data structure will be changed by pivoting after the code below
-            self.data = chartengine.process_aggregator(self.data, self.patients_T_info, statistics, parallel=True)  # all aggregated at one hour intervals
+            # self.data --> structure will be changed by pivoting after the code below
+            self.data = chartengine.process_aggregator(self.data, self.patients_T_info, statistics)  # all aggregated at one hour intervals
             self.data = chartengine.process_interval_shift_alignment(self.data,
                                                              self.item_interval_info)  # aggregate at 4, 24 hours intervals
+            self.data.columns = ['_'.join(map(str, col)).strip() if col[0] not in ['ICUSTAY_ID', "T"] else col[0] for col in self.data.columns ]
             self.processed = True
             print("Processing Complete!")
         else:
@@ -67,6 +68,13 @@ class Chartevents(MIMICPreprocessor):
         self.item_interval_info = chartengine.interval_grouping(
             self.item_desc_info)  # get and cluster variables by interval (1, 4, 24 hours)
         print("Chartevents data updated!")
+
+
+    def load_processed(self, data:pd.DataFrame):
+        self.data = data.copy()
+        self.filtered = True
+        self.processed = True
+
 
 
     def save(self, path):

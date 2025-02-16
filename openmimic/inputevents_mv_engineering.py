@@ -39,48 +39,38 @@ def process_rateuom_into_hour_unit(inputevents_o: pd.DataFrame) -> pd.DataFrame:
 
 
 #################################################### process_transform_T_cohort_ratio ####################################################
-@print_completion
-def process_transform_T_cohort(inputevents: pd.DataFrame, patients_T_info: pd.DataFrame,
-                               parallel=False) -> pd.DataFrame:
-    """
-    Transform inputevents to cohort for all ICUSTAY_ID
+# @print_completion
+# def process_transform_T_cohort(inputevents: pd.DataFrame, patients_T_info: pd.DataFrame,
+#                                parallel=False) -> pd.DataFrame:
+#     """
+#     Transform inputevents to cohort for all ICUSTAY_ID
+#
+#     :param inputevents:
+#     :param patients_T_info:
+#     :return:
+#     """
+#     cpu_count = int(mp.cpu_count() * 0.8)
+#     if parallel:
+#         futures = []
+#         icustay_id_unique = inputevents["ICUSTAY_ID"].unique()
+#         icustay_id_split = np.array_split(icustay_id_unique, cpu_count)
+#
+#         with ProcessPoolExecutor(max_workers=cpu_count) as executor:
+#             for idx, icu_groups in enumerate(icustay_id_split):
+#                 inputevents_group = inputevents[inputevents["ICUSTAY_ID"].isin(icu_groups)]
+#                 patients_T_info_group = patients_T_info[patients_T_info["ICUSTAY_ID"].isin(icu_groups)]
+#                 future = executor.submit(_process_transform_T_cohort,
+#                                          inputevents_group,
+#                                          patients_T_info_group)
+#                 futures.append(future)
+#         results = [future.result() for future in futures]
+#         results = pd.concat(results)
+#     else:
+#         results = _process_transform_T_cohort(inputevents, patients_T_info)
+#
+#     return results
 
-    :param inputevents:
-    :param patients_T_info:
-    :return:
-    """
-    cpu_count = int(mp.cpu_count() * 0.8)
-    if parallel:
-        futures = []
-        icustay_id_unique = inputevents["ICUSTAY_ID"].unique()
-        icustay_id_split = np.array_split(icustay_id_unique, cpu_count)
 
-        with ProcessPoolExecutor(max_workers=cpu_count) as executor:
-            for idx, icu_groups in enumerate(icustay_id_split):
-                inputevents_group = inputevents[inputevents["ICUSTAY_ID"].isin(icu_groups)]
-                patients_T_info_group = patients_T_info[patients_T_info["ICUSTAY_ID"].isin(icu_groups)]
-                future = executor.submit(_process_transform_T_cohort,
-                                         inputevents_group,
-                                         patients_T_info_group)
-                futures.append(future)
-        results = [future.result() for future in futures]
-        results = pd.concat(results)
-    else:
-        results = _process_transform_T_cohort(inputevents, patients_T_info)
-
-    return results
-
-
-def _process_transform_T_cohort(inputevents: pd.DataFrame, patients_T_info: pd.DataFrame) -> pd.DataFrame:
-    results = []
-    for index, group in inputevents.groupby("ICUSTAY_ID"):
-        T_info = patients_T_info[patients_T_info["ICUSTAY_ID"] == index]
-        group_cohort = transform_to_cohort(group, T_info)
-        results.append(group_cohort)
-    results = [dataframe for dataframe in results if not dataframe.empty]
-    if not results:
-        return pd.DataFrame()
-    return pd.concat(results)
 
 
 def transform_to_cohort(inputevents_groupby: pd.DataFrame, T_info: pd.DataFrame) -> pd.DataFrame:
@@ -143,6 +133,20 @@ def transform_to_cohort(inputevents_groupby: pd.DataFrame, T_info: pd.DataFrame)
     cohort = cohort.sort_values(by=["T"])
 
     return cohort.reset_index(drop=True)
+
+
+@print_completion
+@ParallelEHR("ICUSTAY_ID")
+def process_transform_T_cohort(inputevents: pd.DataFrame, patients_T_info: pd.DataFrame) -> pd.DataFrame:
+    results = []
+    for index, group in inputevents.groupby("ICUSTAY_ID"):
+        T_info = patients_T_info[patients_T_info["ICUSTAY_ID"] == index]
+        group_cohort = transform_to_cohort(group, T_info)
+        results.append(group_cohort)
+    results = [dataframe for dataframe in results if not dataframe.empty]
+    if not results:
+        return pd.DataFrame()
+    return pd.concat(results)
 
 
 def _one_take_cohort(row: pd.Series, T_info: pd.DataFrame) -> pd.DataFrame:
