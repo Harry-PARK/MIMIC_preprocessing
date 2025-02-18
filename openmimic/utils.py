@@ -27,7 +27,7 @@ def print_completion(func):
     return wrapper
 
 
-########
+###################################################ParallelEHR####################################################
 def wrapped_function(serialized_func, *args, **kwargs):
     """Worker function that receives only the necessary function"""
     func = cloudpickle.loads(serialized_func)
@@ -61,10 +61,6 @@ class ParallelEHR:
         @wraps(func)
         def wrapper(*args, **kwargs):
             self.cpu_count = int(mp.cpu_count() * 0.8)
-
-            # Serialize the function
-            self.serialized_func = cloudpickle.dumps(func)
-
             # Find DataFrames containing the specified column
             df_args_index = find_target_df_args(args, self.column_name)
 
@@ -88,31 +84,26 @@ class ParallelEHR:
                         filtered_df = temp_df[temp_df[self.column_name].isin(id_group)]
                         temp_args[idx] = filtered_df
 
+
+                    # Serialize the function
+                    self.serialized_func = cloudpickle.dumps(func)
+                    partial_func = partial(wrapped_function, self.serialized_func) # Makes it seem like using a serialized function right away.
                     # Submit the job to the executor
-                    partial_func = partial(wrapped_function, self.serialized_func)
                     future = executor.submit(partial_func, *temp_args, **kwargs)
                     futures.append(future)
 
                 # Collect results
-                results = []
-                for future in futures:
-                    try:
-                        result = future.result()
-                        results.append(result)
-                    except Exception as e:
-                        print(f"Error in worker process: {str(e)}")
-                        raise e
+                results = [future.result() for future in futures]
 
-                if not results:
-                    print("empty results")
-                    return pd.DataFrame()
-
-                return pd.concat(results)
+            if not results:
+                print("empty results")
+                return pd.DataFrame()
+            return pd.concat(results)
 
         return wrapper
 
 
-#######
+#################################################################################################################
 
 def prettify_time(total_seconds: float):
     if total_seconds < 60:
@@ -136,3 +127,20 @@ def map_T_value(row_time, t_info: pd.DataFrame):
 def filter_remove_unassociated_columns(data_df: pd.DataFrame, required_column_list: list):
     data_df = data_df.loc[:, required_column_list]
     return data_df
+
+
+def listlize(x, d_type):
+    if d_type == int:
+        return _listlize_int(x)
+
+
+def _listlize_int(x):
+    if isinstance(x, int):
+        return [x]
+    elif isinstance(x, str):
+        if x.isdigit():
+            return [int(x)]
+        else:
+            return [int(i) for i in x.split(",")]
+    elif isinstance(x, list):
+        return [int(i) for i in x]

@@ -3,59 +3,7 @@ from openmimic.utils import *
 
 
 
-
-@print_completion
-def process_interval_shift_alignment(chartevents: pd.DataFrame,
-                                     item_interval_info: dict[int, list[int]] = None) -> pd.DataFrame:
-    """
-    It re-arranges the item interval by the same interval (1, 4, 24 hours)
-    It automatically choose aggregation methods by searching for the columns with 'mean', 'min', 'max'
-
-
-    :param chartevents: process_aggregator result
-    :param item_interval_info: {1: [220179, 220210], 4: [220179, 220210], 24: [220179, 220210]}
-    :return:
-    """
-
-    def item_columns(df, item_list):
-        item_column = []
-        for column in df.columns:
-            if column[0] in item_list:
-                item_column.append(column)
-        return item_column
-
-    # re-arranges the item interval
-    result = {}
-    for intv_h, items in item_interval_info.items():
-        columns = [("ICUSTAY_ID", ""), ("T", "")] + item_columns(chartevents, items)
-        chartevents_c = chartevents[columns].copy()  # filter items by the same interval
-        if intv_h == 1:
-            # no change needed because already aggregated by hour at process_aggregator
-            chartevents_c[("T_group", "")] = chartevents_c[("T", "")]  # make 'T_group' column for merge
-            chartevents_c.columns = pd.MultiIndex.from_tuples(chartevents_c.columns)
-        else:
-            chartevents_c = _T_intervel_shift_alignment(chartevents_c, intv_h)
-        result[intv_h] = chartevents_c
-
-    # merge all results
-    merged_result = result[1]
-    if 4 in result.keys():
-        merged_result = pd.merge(merged_result, result[4].sort_index(axis=1), on=["ICUSTAY_ID", "T_group"], how="outer")
-    if 24 in result.keys():
-        merged_result = pd.merge(merged_result, result[24].sort_index(axis=1), on=["ICUSTAY_ID", "T_group"],
-                                 how="outer")
-
-    merged_result = merged_result.sort_index(axis=1)
-    merged_result["ICUSTAY_ID"] = merged_result["ICUSTAY_ID"].astype(int)
-    merged_result = merged_result.drop(columns=["T_group"])
-
-    cols = merged_result.columns.tolist()
-    new_cols = cols[-2:] + cols[:-2]
-    merged_result = merged_result[new_cols]
-
-    return merged_result
-
-
+########################################process_group_variables_from_fiddle#######################################
 @print_completion
 def process_group_variables_from_fiddle(chartevents: pd.DataFrame) -> pd.DataFrame:
     """
@@ -98,6 +46,8 @@ def process_group_variables_from_fiddle(chartevents: pd.DataFrame) -> pd.DataFra
 
     return chartevents
 
+##################################################################################################################
+###############################################process_aggregator#################################################
 
 def _aggregate_by_T(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
                     statistics: list[str] = None) -> pd.DataFrame:
@@ -173,6 +123,61 @@ def process_aggregator(chartevents: pd.DataFrame, patients_T_info: pd.DataFrame,
     return combined_results.reset_index(drop=True)
 
 
+##############################################################################################################
+####################################process_interval_shift_alignment###################################
+
+@print_completion
+def process_interval_shift_alignment(chartevents: pd.DataFrame,
+                                     item_interval_info: dict[int, list[int]] = None) -> pd.DataFrame:
+    """
+    It re-arranges the item interval by the same interval (1, 4, 24 hours)
+    It automatically choose aggregation methods by searching for the columns with 'mean', 'min', 'max'
+
+
+    :param chartevents: process_aggregator result
+    :param item_interval_info: {1: [220179, 220210], 4: [220179, 220210], 24: [220179, 220210]}
+    :return:
+    """
+
+    def item_columns(df, item_list):
+        item_column = []
+        for column in df.columns:
+            if column[0] in item_list:
+                item_column.append(column)
+        return item_column
+
+    # re-arranges the item interval
+    result = {}
+    for intv_h, items in item_interval_info.items():
+        columns = [("ICUSTAY_ID", ""), ("T", "")] + item_columns(chartevents, items)
+        chartevents_c = chartevents[columns].copy()  # filter items by the same interval
+        if intv_h == 1:
+            # no change needed because already aggregated by hour at process_aggregator
+            chartevents_c[("T_group", "")] = chartevents_c[("T", "")]  # make 'T_group' column for merge
+            chartevents_c.columns = pd.MultiIndex.from_tuples(chartevents_c.columns)
+        else:
+            chartevents_c = _T_intervel_shift_alignment(chartevents_c, intv_h)
+        result[intv_h] = chartevents_c
+
+    # merge all results
+    merged_result = result[1]
+    if 4 in result.keys():
+        merged_result = pd.merge(merged_result, result[4].sort_index(axis=1), on=["ICUSTAY_ID", "T_group"], how="outer")
+    if 24 in result.keys():
+        merged_result = pd.merge(merged_result, result[24].sort_index(axis=1), on=["ICUSTAY_ID", "T_group"],
+                                 how="outer")
+
+    merged_result = merged_result.sort_index(axis=1)
+    merged_result["ICUSTAY_ID"] = merged_result["ICUSTAY_ID"].astype(int)
+    merged_result = merged_result.drop(columns=["T_group"])
+
+    cols = merged_result.columns.tolist()
+    new_cols = cols[-2:] + cols[:-2]
+    merged_result = merged_result[new_cols]
+
+    return merged_result
+
+
 def _T_intervel_shift_alignment(chartevents: pd.DataFrame, intv_h: int) -> pd.DataFrame:
     """
     It re-arranges the item interval by the same interval (intv_h: 1, 4, 24 hours)
@@ -201,6 +206,9 @@ def _T_intervel_shift_alignment(chartevents: pd.DataFrame, intv_h: int) -> pd.Da
     return T_grouped
 
 
+##################################################################################################################
+##################################################filter######################################################
+
 @print_completion
 def filter_remove_labitems(chartevents: pd.DataFrame) -> pd.DataFrame:
     d_labitems = Config.get_D_LABITEMS()["ITEMID"]
@@ -218,6 +226,7 @@ def filter_remove_no_ICUSTAY_ID(chartevents: pd.DataFrame) -> pd.DataFrame:
     chartevents.loc[:, "ICUSTAY_ID"] = chartevents["ICUSTAY_ID"].astype(int)
     return chartevents
 
+##################################################################################################################
 
 def check_48h(icu_patient: pd.DataFrame) -> bool:
     """
@@ -297,18 +306,25 @@ def interval_grouping(summary_frame: pd.DataFrame) -> dict[int, int]:
     return cluster_dict
 
 
-def listlize(x, d_type):
-    if d_type == int:
-        return _listlize_int(x)
-
-
-def _listlize_int(x):
-    if isinstance(x, int):
-        return [x]
-    elif isinstance(x, str):
-        if x.isdigit():
-            return [int(x)]
+def remove_statics_tag(chartevents_columns: list) -> list:
+    new_columns = []
+    for col in chartevents_columns:
+        column_split = col.split("_")
+        if len(column_split) == 2:
+            if column_split[1] in ["mean", "std", "min", "max"]:
+                new_columns.append(column_split[0])
+            else:
+                new_columns.append(col)
         else:
-            return [int(i) for i in x.split(",")]
-    elif isinstance(x, list):
-        return [int(i) for i in x]
+            new_columns.append(col)
+    return new_columns
+
+
+def map_item_name(chartevents_columns: list, d_items:dict) -> list:
+    item_name = []
+    for col in chartevents_columns:
+        if col.isdigit() and int(col) in d_items.keys():
+            item_name.append(d_items[int(col)])
+        else:
+            item_name.append(col)
+    return item_name

@@ -54,3 +54,9 @@ class InputeventsMV(MIMICPreprocessor):
             print("Processing Complete!")
         else:
             print("Already processed")
+
+    def load_processed(self, data: pd.DataFrame):
+        self.data = data.copy()
+        self.filtered = True
+        self.processed = True
+        return self

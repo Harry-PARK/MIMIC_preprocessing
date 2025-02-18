@@ -23,6 +23,7 @@ class PatientStatic(MIMICPreprocessor):
         self.patients_T_info = patients_T_info.copy()
         self.filtered = True
         self.processed = True
+        return self
 
     def to_csv(self, path: str):
         self.data.to_csv(path, index=False)
