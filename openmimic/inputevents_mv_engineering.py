@@ -1,5 +1,6 @@
 from openmimic import Config
 from openmimic.utils import *
+import re
 
 
 @print_completion
@@ -349,12 +350,6 @@ def process_rateuom_convert_into_gram(inputevents: pd.DataFrame) -> pd.DataFrame
     return inputevents
 
 
-@print_completion
-def filter_remove_no_ICUSTAY_ID(inputevents: pd.DataFrame) -> pd.DataFrame:
-    inputevents = inputevents.dropna(subset=["ICUSTAY_ID"])
-    inputevents.loc[:, "ICUSTAY_ID"] = inputevents["ICUSTAY_ID"].astype(int)
-    return inputevents
-
 
 @print_completion
 def filter_remove_error(inputevents: pd.DataFrame) -> pd.DataFrame:
@@ -363,7 +358,7 @@ def filter_remove_error(inputevents: pd.DataFrame) -> pd.DataFrame:
 
 
 @print_completion
-def filter_remove_zero_input(inputevents: pd.DataFrame) -> pd.DataFrame:
+def filter_remove_zero_value(inputevents: pd.DataFrame) -> pd.DataFrame:
     inputevents = inputevents[inputevents["ORIGINALAMOUNT"] > 0]
     inputevents = inputevents[inputevents["ORIGINALRATE"] > 0]
     return inputevents
@@ -382,3 +377,19 @@ def filter_remove_continuous_uom_missing(inputevents: pd.DataFrame) -> pd.DataFr
             inputevents['RATEUOM'].isnull()))
     ]
     return inputevents
+
+##################################################################################################################
+
+def map_item_name(chartevents_columns: list, d_items: dict) -> list:
+    item_name = []
+    pattern = re.compile(r'^\d+\.\d+$')  # 소수 형식 확인하는 정규 표현식
+
+    for col in chartevents_columns:
+        if col.isdigit() or pattern.match(col):
+            decimal_part = float(col) - int(float(col))
+            decimal_as_int = int(round(decimal_part * 10))
+            item_name.append(d_items.get(int(float(col)), col) + " (" + str(decimal_as_int) + ")")
+        else:
+            item_name.append(col)
+
+    return item_name
