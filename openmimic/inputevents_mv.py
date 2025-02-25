@@ -10,13 +10,13 @@ class InputeventsMV(MIMICPreprocessor):
 
     def __init__(self):
         super().__init__()
-        self.D_ITEMS = None
+        self.d_items = None
 
     def load(self, df: pd.DataFrame, patients_T_info: pd.DataFrame):
         self.data = df.copy().sort_values(by=["ICUSTAY_ID", "STARTTIME"])
         self.patients_T_info = patients_T_info
         D_ITEMS = Config.get_D_ITEMS()
-        self.D_ITEMS = dict(zip(D_ITEMS["ITEMID"], D_ITEMS["LABEL"]))
+        self.d_items = dict(zip(D_ITEMS["ITEMID"], D_ITEMS["LABEL"]))
         self.filtered = False
         self.processed = False
         return self
@@ -55,12 +55,12 @@ class InputeventsMV(MIMICPreprocessor):
             print("Already processed")
 
     def cnvrt_column(self):
-        self.data.columns = inputengine.map_item_name(self.data.columns, self.D_ITEMS)
+        self.data.columns = map_item_name_with_various_uom_columns(self.data.columns, self.d_items)
 
     def load_processed(self, data: pd.DataFrame, patients_T_info: pd.DataFrame = None):
         self.data = data.copy()
         D_ITEMS = Config.get_D_ITEMS()
-        self.D_ITEMS = dict(zip(D_ITEMS["ITEMID"], D_ITEMS["LABEL"]))
+        self.d_items = dict(zip(D_ITEMS["ITEMID"], D_ITEMS["LABEL"]))
         self.patients_T_info = patients_T_info
         self.filtered = True
         self.processed = True

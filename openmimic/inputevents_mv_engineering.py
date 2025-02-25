@@ -380,16 +380,3 @@ def filter_remove_continuous_uom_missing(inputevents: pd.DataFrame) -> pd.DataFr
 
 ##################################################################################################################
 
-def map_item_name(chartevents_columns: list, d_items: dict) -> list:
-    item_name = []
-    pattern = re.compile(r'^\d+\.\d+$')  # 소수 형식 확인하는 정규 표현식
-
-    for col in chartevents_columns:
-        if col.isdigit() or pattern.match(col):
-            decimal_part = float(col) - int(float(col))
-            decimal_as_int = int(round(decimal_part * 10))
-            item_name.append(d_items.get(int(float(col)), col) + " (" + str(decimal_as_int) + ")")
-        else:
-            item_name.append(col)
-
-    return item_name

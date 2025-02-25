@@ -55,15 +55,14 @@ class Chartevents(MIMICPreprocessor):
                                                        statistics)  # all aggregated at one hour intervals
             self.data = process_interval_shift_alignment(self.data,
                                                          self.item_interval_info)  # aggregate at 4, 24 hours intervals
-            self.data.columns = ['_'.join(map(str, col)).strip() if col[0] not in ['ICUSTAY_ID', "T"] else col[0] for
-                                 col in self.data.columns]
+            self.data.columns = flatten_multiindex(self.data.columns)
             self.processed = True
             print("Processing Complete!")
         else:
             print("Already processed")
 
     def cnvrt_column(self):
-        self.data.columns = chartengine.remove_statics_tag(self.data.columns)
+        self.data.columns = remove_statics_tag(self.data.columns)
         self.data.columns = chartengine.map_item_name(self.data.columns, self.d_items)
 
     def update_info(self):

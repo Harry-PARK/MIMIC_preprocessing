@@ -10,15 +10,15 @@ class Outputevents(MIMICPreprocessor):
 
     def __init__(self):
         super().__init__()
-        self.D_LABITEMS = None
+        self.d_items = None
         self.item_desc_info = None
         self.item_interval_info = None
 
     def load(self, df: pd.DataFrame, patients_T_info: pd.DataFrame):
         self.data = df.copy().sort_values(by=["ICUSTAY_ID", "CHARTTIME"])
         self.patients_T_info = patients_T_info
-        D_LABITEMS = Config.get_D_LABITEMS()
-        self.D_LABITEMS = dict(zip(D_LABITEMS["ITEMID"], D_LABITEMS["LABEL"]))
+        d_items = Config.get_D_ITEMS()
+        self.d_items = dict(zip(d_items["ITEMID"], d_items["LABEL"]))
         self.filtered = False
         self.processed = False
         return self
@@ -50,10 +50,15 @@ class Outputevents(MIMICPreprocessor):
             # self.data --> structure will be changed by pivoting after the code below
             self.data = outputengine.process_aggregator(self.data, self.patients_T_info, statistics)
             self.data = process_interval_shift_alignment(self.data, self.item_interval_info)
+            self.data.columns = flatten_multiindex(self.data.columns)
             self.processed = True
             print("Processing Complete!")
         else:
             print("Already processed")
+
+    def cnvrt_column(self):
+        self.data.columns = remove_statics_tag(self.data.columns)
+        self.data.columns = map_item_name(self.data.columns, self.d_items)
 
     def update_info(self):
         self.item_desc_info = interval_describe(
@@ -61,3 +66,12 @@ class Outputevents(MIMICPreprocessor):
         self.item_interval_info = interval_grouping(
             self.item_desc_info)  # get and cluster variables by interval (1, 4, 24 hours)
         print("Outputevents data updated!")
+
+    def load_processed(self, data:pd.DataFrame, patients_T_info: pd.DataFrame=None):
+        self.data = data.copy()
+        D_ITEMS = Config.get_D_ITEMS()
+        self.d_items = dict(zip(D_ITEMS["ITEMID"], D_ITEMS["LABEL"]))
+        self.patients_T_info = patients_T_info
+        self.filtered = True
+        self.processed = True
+        return self

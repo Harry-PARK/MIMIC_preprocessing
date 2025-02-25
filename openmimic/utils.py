@@ -1,5 +1,6 @@
 import multiprocessing as mp
 import time
+import re
 from concurrent.futures.process import ProcessPoolExecutor
 from functools import wraps, partial
 
@@ -300,6 +301,60 @@ def _T_intervel_shift_alignment(charttime_table: pd.DataFrame, intv_h: int) -> p
     T_grouped[("T_group", "")] = T_grouped[("T_group", "")] * intv_h
 
     return T_grouped
+
+@print_completion
+def remove_statics_tag(df_columns: list) -> list:
+    new_columns = []
+    for col in df_columns:
+        column_split = col.split("_")
+        if len(column_split) == 2:
+            if column_split[1] in ["mean", "std", "min", "max"]:
+                new_columns.append(column_split[0])
+            else:
+                new_columns.append(col)
+        else:
+            new_columns.append(col)
+    return new_columns
+
+@print_completion
+def map_item_name(df_columns: list, d_items:dict) -> list:
+    item_name = []
+    for col in df_columns:
+        if col.isdigit() and int(col) in d_items.keys():
+            item_name.append(d_items[int(col)])
+        else:
+            item_name.append(col)
+    return item_name
+
+@print_completion
+def map_item_name_with_various_uom_columns(df_columns: list, d_items: dict) -> list:
+    """
+    This function maps the item name with the various uom columns
+    example:
+    221794.0 (mg) -> Furosemide (Lasix) (0)
+    221794.1 (dose) -> Furosemide (Lasix) (1)
+
+    :param df_columns:
+    :param d_items:
+    :return:
+    """
+    item_name = []
+    pattern = re.compile(r'^\d+\.\d+$')
+
+    for col in df_columns:
+        if col.isdigit() or pattern.match(col):
+            decimal_part = float(col) - int(float(col))
+            decimal_as_int = int(round(decimal_part * 10))
+            item_name.append(d_items.get(int(float(col)), col) + " (" + str(decimal_as_int) + ")")
+        else:
+            item_name.append(col)
+
+    return item_name
+
+@print_completion
+def flatten_multiindex(df_columns: pd.MultiIndex) -> list:
+    return ['_'.join(map(str, col)).strip() if col[0] not in ['ICUSTAY_ID', "T"] else col[0] for
+     col in df_columns]
 
 #################################################################################################################
 

@@ -125,11 +125,6 @@ def process_aggregator(chartevents: pd.DataFrame, patients_T_info: pd.DataFrame,
 
 
 ##############################################################################################################
-####################################process_interval_shift_alignment###################################
-
-
-
-##################################################################################################################
 ##################################################filter######################################################
 @print_completion
 def filter_remove_labitems(chartevents: pd.DataFrame) -> pd.DataFrame:
@@ -145,25 +140,6 @@ def filter_remove_error(chartevents: pd.DataFrame) -> pd.DataFrame:
 
 
 ##################################################################################################################
-def remove_statics_tag(chartevents_columns: list) -> list:
-    new_columns = []
-    for col in chartevents_columns:
-        column_split = col.split("_")
-        if len(column_split) == 2:
-            if column_split[1] in ["mean", "std", "min", "max"]:
-                new_columns.append(column_split[0])
-            else:
-                new_columns.append(col)
-        else:
-            new_columns.append(col)
-    return new_columns
 
 
-def map_item_name(chartevents_columns: list, d_items:dict) -> list:
-    item_name = []
-    for col in chartevents_columns:
-        if col.isdigit() and int(col) in d_items.keys():
-            item_name.append(d_items[int(col)])
-        else:
-            item_name.append(col)
-    return item_name
+
