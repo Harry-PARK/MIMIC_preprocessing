@@ -1,6 +1,7 @@
 import pandas as pd
+from openmimic.utils import *
 
-
+@print_completion
 def make_patients_T_info(patients: pd.DataFrame) -> pd.DataFrame:
     # ICU_TIME을 datetime 형식으로 변환
     patients['ICU_TIME'] = pd.to_datetime(patients['ICU_TIME'])

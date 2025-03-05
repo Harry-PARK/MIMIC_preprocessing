@@ -75,3 +75,7 @@ class Outputevents(MIMICPreprocessor):
         self.filtered = True
         self.processed = True
         return self
+
+    def to_csv(self, path:str):
+        self.data.to_csv(path, index=False)
+        print("Outputevents is saved at ", path)

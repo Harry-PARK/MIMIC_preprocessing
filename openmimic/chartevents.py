@@ -63,7 +63,7 @@ class Chartevents(MIMICPreprocessor):
 
     def cnvrt_column(self):
         self.data.columns = remove_statics_tag(self.data.columns)
-        self.data.columns = chartengine.map_item_name(self.data.columns, self.d_items)
+        self.data.columns = map_item_name(self.data.columns, self.d_items)
 
     def update_info(self):
         self.item_desc_info = interval_describe(self.data)  # get item description (interval statistics by hour)
@@ -80,5 +80,6 @@ class Chartevents(MIMICPreprocessor):
         self.processed = True
         return self
 
-    def save(self, path):
-        pass
+    def to_cvs(self, path:str):
+        self.data.to_csv(path, index=False)
+        print("Chartevents is saved at ", path)
