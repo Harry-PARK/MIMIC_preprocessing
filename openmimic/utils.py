@@ -1,6 +1,6 @@
 import multiprocessing as mp
-import time
 import re
+import time
 from concurrent.futures.process import ProcessPoolExecutor
 from functools import wraps, partial
 
@@ -25,6 +25,23 @@ def print_completion(func):
         return result
 
     return wrapper
+
+
+def move_column(df, col_name, position=None, ref_col=None, side='left'):
+    if col_name not in df.columns:
+        raise ValueError(f"Column '{col_name}' not found in DataFrame")
+
+    col = df.pop(col_name)
+
+    if ref_col and ref_col in df.columns:
+        ref_index = df.columns.get_loc(ref_col)
+        position = ref_index if side == 'left' else ref_index + 1
+
+    if position is None:
+        raise ValueError("Either position or ref_col must be specified")
+
+    df.insert(position, col_name, col)
+    return
 
 
 ###################################################ParallelEHR####################################################
@@ -137,6 +154,7 @@ def _listlize_int(x):
             return [int(i) for i in x.split(",")]
     elif isinstance(x, list):
         return [int(i) for i in x]
+
 
 #################################################################################################################
 @print_completion
@@ -302,6 +320,7 @@ def _T_intervel_shift_alignment(charttime_table: pd.DataFrame, intv_h: int) -> p
 
     return T_grouped
 
+
 @print_completion
 def remove_statics_tag(df_columns: list) -> list:
     new_columns = []
@@ -316,8 +335,9 @@ def remove_statics_tag(df_columns: list) -> list:
             new_columns.append(col)
     return new_columns
 
+
 @print_completion
-def map_item_name(df_columns: list, d_items:dict) -> list:
+def map_item_name(df_columns: list, d_items: dict) -> list:
     item_name = []
     for col in df_columns:
         if col.isdigit() and int(col) in d_items.keys():
@@ -325,6 +345,7 @@ def map_item_name(df_columns: list, d_items:dict) -> list:
         else:
             item_name.append(col)
     return item_name
+
 
 @print_completion
 def map_item_name_with_various_uom_columns(df_columns: list, d_items: dict) -> list:
@@ -351,10 +372,10 @@ def map_item_name_with_various_uom_columns(df_columns: list, d_items: dict) -> l
 
     return item_name
 
+
 @print_completion
 def flatten_multiindex(df_columns: pd.MultiIndex) -> list:
     return ['_'.join(map(str, col)).strip() if col[0] not in ['ICUSTAY_ID', "T"] else col[0] for
-     col in df_columns]
+            col in df_columns]
 
 #################################################################################################################
-

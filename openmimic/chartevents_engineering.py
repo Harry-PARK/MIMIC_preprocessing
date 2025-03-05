@@ -54,7 +54,7 @@ def _aggregate_by_T(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
     """
 
     example:
-    om.chartevents_aggregator(icu_patient, patients_static.patients_T_info, ["mean", "min"])
+    om.process_aggregator(chartevents, patients_static.patients_T_info, ["mean", "min"])
 
     :param icu_patient: pandas DataFrame group object
     :param patient_T_info:

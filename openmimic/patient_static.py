@@ -30,4 +30,6 @@ class PatientStatic(MIMICPreprocessor):
 
     def to_csv(self, path: str):
         self.data.to_csv(path, index=False)
+        print("patient_static is saved at", path)
         self.patients_T_info.to_csv(path.replace(".csv", "_T_info.csv"), index=False)
+        print("patient_static_T_info is saved at", path.replace(".csv", "_T_info.csv"))
