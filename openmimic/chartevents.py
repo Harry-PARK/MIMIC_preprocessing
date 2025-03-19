@@ -24,13 +24,14 @@ class Chartevents(MIMICPreprocessor):
         self.update_info()
         return self
 
-    def filter(self):
+    def filter(self, icustay_id_list: list):
         if not self.filtered:
             print("-----------------------------------")
             print("Filtering...")
             before_len = len(self.data)
             self.data = filter_remove_unassociated_columns(self.data, Chartevents.required_column_list)
             self.data = filter_remove_no_ICUSTAY_ID(self.data)  # filter out rows without ICUSTAY_ID
+            self.data = filter_icustay_id(self.data, icustay_id_list)
             self.data = chartengine.filter_remove_error(self.data)
             self.data = chartengine.filter_remove_labitems(self.data)
             after_len = len(self.data)
@@ -41,10 +42,10 @@ class Chartevents(MIMICPreprocessor):
         else:
             print("Already filtered")
 
-    def process(self, statistics: list[str] = None, filter_skip: bool = False):
+    def process(self, icustay_id_list=None, statistics: list[str] = None, filter_skip: bool = False):
         if not self.processed:
             if not self.filtered and not filter_skip:
-                self.filter()
+                self.filter(icustay_id_list)
             print("-----------------------------------")
             print("Processing...")
             self.data = chartengine.process_group_variables_from_fiddle(self.data)  # combine some variables

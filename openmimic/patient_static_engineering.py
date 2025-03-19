@@ -44,3 +44,13 @@ def make_patients_T_info(patients: pd.DataFrame) -> pd.DataFrame:
     final_df = final_df.sort_values(by=['ICUSTAY_ID', 'T'])
     # 결과 출력
     return final_df
+
+
+def filter_first_visit_only(patients: pd.DataFrame) -> pd.DataFrame:
+    patients_sorted = patients.sort_values(by=['SUBJECT_ID', 'ICU_TIME'], ascending=[True, True])
+    first_visits = patients_sorted.groupby("SUBJECT_ID").first().reset_index()
+    return first_visits
+
+def filter_age(patients: pd.DataFrame, min_age: int) -> pd.DataFrame:
+    return patients[patients["AGE"] >= min_age]
+

@@ -7,13 +7,21 @@ from openmimic.mimic_preprocessor import MIMICPreprocessor
 class PatientStatic(MIMICPreprocessor):
     def __init__(self):
         super().__init__()
+        self.icustay_ids = None
 
     def load(self, data: pd.DataFrame, patients_T_info: pd.DataFrame = None):
         self.data = data.copy()
+        self.filter()
         if patients_T_info is None:
             self.patients_T_info = patientengine.make_patients_T_info(self.data)
         else:
             self.patients_T_info = patients_T_info.copy()
+        self.icustay_ids = self.data["ICUSTAY_ID"].unique()
+
+    def filter(self):
+        self.data = patientengine.filter_age(self.data, 18)
+        self.data = patientengine.filter_first_visit_only(self.data)
+
 
     def load_processed(self, data: pd.DataFrame, patients_T_info: pd.DataFrame):
         def string_to_interval(str_interval):
@@ -23,6 +31,7 @@ class PatientStatic(MIMICPreprocessor):
             return pd.Interval(left=starttime, right=endtime, closed="left")
         patients_T_info["T_range"] = patients_T_info["T_range"].apply(string_to_interval)
         self.data = data.copy()
+        self.icustay_ids = self.data["ICUSTAY_ID"].unique()
         self.patients_T_info = patients_T_info.copy()
         self.filtered = True
         self.processed = True

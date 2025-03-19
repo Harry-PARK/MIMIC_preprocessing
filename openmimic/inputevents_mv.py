@@ -21,13 +21,14 @@ class InputeventsMV(MIMICPreprocessor):
         self.processed = False
         return self
 
-    def filter(self):
+    def filter(self, icustay_id_list: list):
         if not self.filtered:
             print("-----------------------------------")
             print("Filtering...")
             before_len = len(self.data)
             self.data = filter_remove_unassociated_columns(self.data, InputeventsMV.required_column_list)
             self.data = filter_remove_no_ICUSTAY_ID(self.data)
+            self.data = filter_icustay_id(self.data, icustay_id_list)
             self.data = inputengine.filter_remove_error(self.data)
             self.data = inputengine.filter_remove_zero_value(self.data)
             self.data = inputengine.filter_remove_continuous_uom_missing(self.data)
@@ -39,10 +40,10 @@ class InputeventsMV(MIMICPreprocessor):
         else:
             print("Already filtered")
 
-    def process(self, filter_skip: bool = False):
+    def process(self, icustay_id_list: list = None, filter_skip: bool = False):
         if not self.processed:
             if not self.filtered and not filter_skip:
-                self.filter()
+                self.filter(icustay_id_list)
             print("-----------------------------------")
             print("Processing...")
             self.data = inputengine.process_rateuom_into_hour_unit(self.data)

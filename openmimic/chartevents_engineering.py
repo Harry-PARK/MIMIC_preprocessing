@@ -46,6 +46,10 @@ def process_group_variables_from_fiddle(chartevents: pd.DataFrame) -> pd.DataFra
 
     return chartevents
 
+
+def process_group_variable_from_mimic_iii_extract(chartevents: pd.DataFrame) -> pd.DataFrame:
+    pass
+
 ##################################################################################################################
 ###############################################process_aggregator#################################################
 

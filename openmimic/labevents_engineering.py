@@ -2,8 +2,19 @@ from openmimic.utils import *
 
 
 def attach_icustay_id(labevents: pd.DataFrame, icustay_raw: pd.DataFrame) -> pd.DataFrame:
-    return pd.merge(labevents, icustay_raw[['SUBJECT_ID', 'HADM_ID', 'ICUSTAY_ID']], on=['SUBJECT_ID', 'HADM_ID'],
-             how='left')
+    merged = pd.merge(
+        labevents,
+        icustay_raw[['SUBJECT_ID', 'HADM_ID', 'ICUSTAY_ID', 'INTIME', 'OUTTIME']],
+        on=['SUBJECT_ID', 'HADM_ID'],
+        how='left'
+    )
+    mask = (merged['CHARTTIME'] >= merged['INTIME']) & (merged['CHARTTIME'] <= merged['OUTTIME'])
+    merged.loc[~mask, 'ICUSTAY_ID'] = pd.NA
+    merged = merged.drop(columns=['INTIME', 'OUTTIME'])
+    merged = merged.dropna(subset=['ICUSTAY_ID'])
+
+    return merged
+
 
 @print_completion
 def filter_remove_non_numeric_value(labevents: pd.DataFrame) -> pd.DataFrame:
@@ -11,6 +22,7 @@ def filter_remove_non_numeric_value(labevents: pd.DataFrame) -> pd.DataFrame:
     labevents = labevents[mask]
     labevents.loc[:, "VALUE"] = labevents.loc[:, "VALUE"].astype(float)
     return labevents
+
 
 ##################################################################################################################
 ###############################################process_aggregator#################################################
@@ -46,7 +58,8 @@ def _aggregate_by_T(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
     icu_agg.insert(0, "ICUSTAY_ID", icustay_id)
 
     icu_agg = icu_agg[icu_agg[(
-    'T', '')] != -1]  # This code should be under 'Aggregate data' part to get the same MultiIndex from .agg(statistics)
+        'T',
+        '')] != -1]  # This code should be under 'Aggregate data' part to get the same MultiIndex from .agg(statistics)
     if icu_agg.empty or icu_agg["T"].max() < 1:
         # if data is empty
         # if only data is less than 30 minutes (only 30 minutes data)
@@ -73,7 +86,6 @@ def _aggregate_by_T(icu_patient: pd.DataFrame, patient_T_info: pd.DataFrame,
 @ParallelEHR('ICUSTAY_ID')
 def process_aggregator(chartevents: pd.DataFrame, patients_T_info: pd.DataFrame,
                        statistics: list[str] = None) -> pd.DataFrame:
-
     if statistics is None:
         statistics = ["mean"]
 
@@ -88,6 +100,5 @@ def process_aggregator(chartevents: pd.DataFrame, patients_T_info: pd.DataFrame,
     if ("ICUSTAY_ID", "") in combined_results.columns:
         combined_results[("ICUSTAY_ID", "")] = combined_results[("ICUSTAY_ID", "")].astype(int)
     return combined_results.reset_index(drop=True)
-
 
 ##############################################################################################################

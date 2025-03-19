@@ -26,20 +26,21 @@ class Labevents(MIMICPreprocessor):
         return self
 
     def attach_icustay_id(self, icustay_raw: pd.DataFrame):
-        icustay_raw = icustay_raw[['SUBJECT_ID', 'HADM_ID', 'ICUSTAY_ID']]
+        icustay_raw = icustay_raw[['SUBJECT_ID', 'HADM_ID', 'ICUSTAY_ID', "INTIME", "OUTTIME"]]
         self.data = labengine.attach_icustay_id(self.data, icustay_raw)
         self. data = self.data.sort_values(by=["ICUSTAY_ID", "CHARTTIME"])
         self.icustay_id_attach = True
         print("ICUSTAY_ID attached")
         return self
 
-    def filter(self):
+    def filter(self, icustay_id_list: list):
         if not self.filtered and self.icustay_id_attach:
             print("-----------------------------------")
             print("Filtering...")
             before_len = len(self.data)
             self.data = filter_remove_unassociated_columns(self.data, Labevents.required_column_list)
             self.data = filter_remove_no_ICUSTAY_ID(self.data)
+            self.data = filter_icustay_id(self.data, icustay_id_list)
             self.data = labengine.filter_remove_non_numeric_value(self.data)
             after_len = len(self.data)
             self.filtered = True
@@ -53,10 +54,10 @@ class Labevents(MIMICPreprocessor):
             Call 'Labevents.attach_icustay_id(icustay: pd.DataFrame)' before filtering.
             """)
 
-    def process(self, statistics: list[str] = None, filter_skip: bool = False):
+    def process(self, icustay_id_list: list = None, statistics: list[str] = None, filter_skip: bool = False):
         if not self.processed and self.icustay_id_attach:
             if not self.filtered and not filter_skip:
-                self.filter()
+                self.filter(icustay_id_list)
             print("-----------------------------------")
             print("Processing...")
             self.data = labengine.process_aggregator(self.data, self.patients_T_info, statistics)
