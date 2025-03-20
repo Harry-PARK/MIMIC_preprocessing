@@ -101,7 +101,8 @@ class Cohort:
     # Preprocessing for Cohort
     def imputation(self):
         print("impute: col mean")
-        self.data = self.data.apply(lambda col: col.fillna(col.mean()), axis=0)
+        self.data = self.data.groupby("ICUSTAY_ID").apply(lambda x: x.fillna(x.mean())) # fill with mean of each patient
+        self.data = self.data.apply(lambda col: col.fillna(col.mean()), axis=0) # fill with mean of each column if patient doesn't have any data
 
     def drop_empty_columns(self):
         # drop all nan columns or satisfy some ratio
