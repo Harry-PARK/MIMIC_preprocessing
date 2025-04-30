@@ -81,6 +81,6 @@ class Chartevents(MIMICPreprocessor):
         self.processed = True
         return self
 
-    def to_cvs(self, path:str):
+    def to_csv(self, path:str):
         self.data.to_csv(path, index=False)
         print("Chartevents is saved at ", path)

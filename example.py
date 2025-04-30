@@ -15,13 +15,16 @@ port = '3306'
 database = "MIMIC_III"
 db_engine = create_engine(f'mysql+pymysql://{username}:{password}@{host}:{port}/{database}')
 
-# om configuration
-om.Config.mimic_path = "../mimic3_csv/"
+
 
 # path configuration
 processed_tables_path = "./processed_tables/"
 data = "./data/"
 mimic_path = "../mimic3_csv/"
+
+
+# om configuration
+om.Config.mimic_path = mimic_path
 
 if __name__ == '__main__':
     start_time = time.time()
@@ -33,7 +36,7 @@ if __name__ == '__main__':
     print("Demographic querying...", end="")
     # query = "SELECT * FROM patient_static"
     # patients_raw = pd.read_sql(query, db_engine)
-    patients_raw = pd.read_csv(mimic_path+"custom_patients_static.csv")
+    patients_raw = pd.read_csv(mimic_path+"custom_patients_static.csv") # custom_patients_static.csv include ICUSTAY_ID and demographic information
     print("Done.")
     patients_static = om.PatientStatic()
     patients_static.load(patients_raw)
@@ -63,13 +66,13 @@ if __name__ == '__main__':
     columns = "ICUSTAY_ID, ITEMID, CHARTTIME, VALUE, VALUENUM, VALUEUOM, ERROR"
     # query = f"SELECT * FROM CHARTEVENTS WHERE ITEMID IN {chartevents_items} ORDER BY CHARTTIME;"
     # chartevents_raw = pd.read_sql(query, db_engine)
-    chartevents_raw = pd.read_csv(mimic_path+"custom_chartevents.csv", parse_dates=["CHARTTIME"])
+    chartevents_raw = pd.read_csv(mimic_path+"custom_chartevents.csv", parse_dates=["CHARTTIME"]) # custom_chartevents.csv only includes data corresponding to the ITEMID listed above.
     chartevents_raw = chartevents_raw[columns.split(", ")]
     print("Done.")
     chartevents = om.Chartevents()
     chartevents.load(chartevents_raw, patients_static.patients_T_info)
     chartevents.process(patients_static.icustay_ids)
-    chartevents.to_cvs(processed_tables_path + "p_chartevents.csv")
+    chartevents.to_csv(processed_tables_path + "p_chartevents.csv")
     del chartevents_raw, chartevents
 
     # INPUTEVENTS_MV
