@@ -21,7 +21,7 @@ def process_rateuom_into_hour_unit(inputevents_o: pd.DataFrame) -> pd.DataFrame:
     inputevents = inputevents_o.copy()
     units_unique = inputevents["RATEUOM"].unique()
     for unit in units_unique:
-        if unit is None:
+        if pd.isna(unit) or not isinstance(unit, str):
             continue
         unit_filter = inputevents["RATEUOM"] == unit
         if "/kg/min" in unit:

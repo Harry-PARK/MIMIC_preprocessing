@@ -41,7 +41,7 @@ def move_column(df, col_name, position=None, ref_col=None, side='left'):
         raise ValueError("Either position or ref_col must be specified")
 
     df.insert(position, col_name, col)
-    return
+    return df
 
 
 ###################################################ParallelEHR####################################################
@@ -168,6 +168,11 @@ def filter_remove_no_ICUSTAY_ID(df: pd.DataFrame) -> pd.DataFrame:
     df = df.dropna(subset=["ICUSTAY_ID"])
     df.loc[:, "ICUSTAY_ID"] = df["ICUSTAY_ID"].astype(int)
     return df
+
+
+@print_completion
+def filter_icustay_id(df: pd.DataFrame, icustay_id_list: list) -> pd.DataFrame:
+    return df[df["ICUSTAY_ID"].isin(icustay_id_list)]
 
 
 def check_48h(icu_patient: pd.DataFrame) -> bool:

@@ -23,13 +23,14 @@ class Outputevents(MIMICPreprocessor):
         self.processed = False
         return self
 
-    def filter(self):
+    def filter(self, icustay_id_list: list):
         if not self.filtered:
             print("-----------------------------------")
             print("Filtering...")
             before_len = len(self.data)
             self.data = filter_remove_unassociated_columns(self.data, Outputevents.required_column_list)
             self.data = filter_remove_no_ICUSTAY_ID(self.data)
+            self.data = filter_icustay_id(self.data, icustay_id_list)
             self.data = outputengine.filter_remove_error(self.data)
             self.data = outputengine.filter_remove_zero_value(self.data)
             after_len = len(self.data)
@@ -40,10 +41,10 @@ class Outputevents(MIMICPreprocessor):
         else:
             print("Already filtered")
 
-    def process(self, statistics: list[str] = None, filter_skip: bool = False):
+    def process(self, icustay_id_list: list = None, statistics: list[str] = None, filter_skip: bool = False):
         if not self.processed:
             if not self.filtered and not filter_skip:
-                self.filter()
+                self.filter(icustay_id_list)
             print("-----------------------------------")
             print("Processing...")
             self.data["VALUEUOM"] = self.data["VALUEUOM"].str.lower()
