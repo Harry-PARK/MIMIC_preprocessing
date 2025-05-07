@@ -1,27 +1,34 @@
-import os
+"""
+This script processes MIMIC-III tables and saves them in a specified format.
+It uses MIMIC-III csv files and processes them to create a set of tables that can be used for further analysis or making cohorts.
+
+"""
+import argparse
 import time
 from datetime import datetime
-
 import pandas as pd
-from sqlalchemy import create_engine
 
 import openmimic as om
 
 # db configuration
-username = 'root'
-password = os.getenv('AIMED_PW')
-host = '172.28.8.103'
-port = '3306'
-database = "MIMIC_III"
-db_engine = create_engine(f'mysql+pymysql://{username}:{password}@{host}:{port}/{database}')
+# username = 'root'
+# password = os.getenv('AIMED_PW')
+# host = '172.28.8.103'
+# port = '3306'
+# database = "MIMIC_III"
+# db_engine = create_engine(f'mysql+pymysql://{username}:{password}@{host}:{port}/{database}')
 
+def get_args():
+    parser = argparse.ArgumentParser(description="MIMIC-III preprocessing tables")
+    parser.add_argument("--mimic_path", type=str, default="../mimic3_csv/", help="Path to mimic dataset")
+    parser.add_argument("--processed_tables_path", type=str, default="./processed_tables/",
+                        help="Output path to processed tables")
+    return parser.parse_args()
 
-
-# path configuration
-processed_tables_path = "./processed_tables/"
-data = "./data/"
-mimic_path = "../mimic3_csv/"
-
+# arguments configuration
+args = get_args()
+processed_tables_path = args.processed_tables_path
+mimic_path = args.mimic_path
 
 # om configuration
 om.Config.mimic_path = mimic_path

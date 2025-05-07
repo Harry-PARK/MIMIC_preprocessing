@@ -112,6 +112,9 @@ class Cohort:
     # Preprocessing for Cohort
     def is_continuous(self, col: str) -> bool:
         # if unique value is more than 20, it is continuous
+        # the result
+        # min of nunique of continuous is 23
+        # max of nunique of discrete is 10
         return pd.api.types.is_numeric_dtype(self.data[col]) and self.data[col].nunique() > 20
 
     def fill_missing_by_ICUSTAY_ID(self):
@@ -179,25 +182,26 @@ class Cohort:
         self.data = self.data[self.data["AGE"] >= 18]
 
 
-    def transform_dataset(self, label_type: str = "IN_HOSPITALITY_MORTALITY", n:int=0):
+    def transform_dataset(self, label_type: str = "IN_HOSPITAL_MORTALITY", n:int=0):
         print("Transform to ML/DL dataset...")
         drop_columns = ['FIRST_WARDID', 'LANGUAGE', 'MARITAL_STATUS', 'RELIGION', 'ICU_TIME', 'DEATHTIME', 'ADMITIME',
                         'DOB', 'T']
         onehot_columns = ['GENDER', 'ADMISSION_TYPE', 'ADMISSION_LOCATION', 'FIRST_CAREUNIT', 'INSURANCE', 'ETHNICITY']
 
         label = None
-        if label_type == "IN_HOSPITALITY_MORTALITY":
+        if label_type == "IN_HOSPITAL_MORTALITY":
             # in-hospital mortality
             label = self.in_hospital_mortality_label()
-        elif label_type == "48H_IN_HOSPITALITY_MORTALITY":
+        elif label_type == "48H_IN_HOSPITAL_MORTALITY":
             # 48h in-hospital mortality
             pass
+
 
         print("Dropping columns...")
         self.data = self.data.drop(drop_columns, axis=1)
         print("One-hot encoding...")
         self.data = pd.get_dummies(self.data, columns=onehot_columns, drop_first=True)
-        if n == 0:
+        if n < 0:
             self.data = self.data.groupby("ICUSTAY_ID").mean()
         else:
             self.data['row_count'] = self.data.groupby('ICUSTAY_ID').cumcount()
