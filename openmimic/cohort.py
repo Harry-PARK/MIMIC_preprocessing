@@ -106,7 +106,7 @@ class Cohort:
         label = pd.DataFrame({"label": data["DEATHTIME"].apply(lambda x: 1 if pd.notnull(x) else 0)})
         return label["label"]
 
-    def in_hospital_48h_label(self):
+    def ARF_label(self):
         pass
 
     # Preprocessing for Cohort
@@ -192,7 +192,7 @@ class Cohort:
         if label_type == "IN_HOSPITAL_MORTALITY":
             # in-hospital mortality
             label = self.in_hospital_mortality_label()
-        elif label_type == "48H_IN_HOSPITAL_MORTALITY":
+        elif label_type == "ARF":
             # 48h in-hospital mortality
             pass
 
