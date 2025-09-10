@@ -2,31 +2,34 @@ import pandas as pd
 import numpy as np
 
 
-
 if __name__ == "__main__":
-    ADMISSIONS = pd.read_csv("../mimic3_csv/ADMISSIONS.csv", parse_dates=["ADMITTIME", "DISCHTIME", "DEATHTIME"])
+    ADMISSIONS = pd.read_csv(
+        "../mimic3_csv/ADMISSIONS.csv",
+        parse_dates=["ADMITTIME", "DISCHTIME", "DEATHTIME"]
+    )
     ICUSTAYS = pd.read_csv("../mimic3_csv/ICUSTAYS.csv")
 
-    ADMISSIONS = ADMISSIONS[["SUBJECT_ID", "HADM_ID", "ADMITTIME", "DISCHTIME", "DEATHTIME"]]
+    ADMISSIONS = ADMISSIONS[["SUBJECT_ID", "HADM_ID", "ADMITTIME", "DISCHTIME", "DEATHTIME", "HOSPITAL_EXPIRE_FLAG"]]
     ICUSTAYS = ICUSTAYS[["SUBJECT_ID", "HADM_ID", "ICUSTAY_ID"]]
 
-    ADMISSIONS["ADMITTIME"] = pd.to_datetime(ADMISSIONS["ADMITTIME"]).dt.date
-    ADMISSIONS["DISCHTIME"] = pd.to_datetime(ADMISSIONS["DISCHTIME"]).dt.date
-    ADMISSIONS["DEATHTIME"] = pd.to_datetime(ADMISSIONS["DEATHTIME"]).dt.date
+    # 1) IHM 정의: 가장 안전하게는 HOSPITAL_EXPIRE_FLAG 사용
+    if "HOSPITAL_EXPIRE_FLAG" in ADMISSIONS.columns:
+        ADMISSIONS["IN_HOSPITAL_MORTALITY"] = ADMISSIONS["HOSPITAL_EXPIRE_FLAG"].astype(int)
+    else:
+        # 플래그가 없다면: DEATHTIME 존재 & DEATHTIME <= DISCHTIME
+        ADMISSIONS["IN_HOSPITAL_MORTALITY"] = (
+            ADMISSIONS["DEATHTIME"].notna() & (ADMISSIONS["DEATHTIME"] <= ADMISSIONS["DISCHTIME"])
+        ).astype(int)
 
-    ADMISSIONS["IN_HOSPITAL_MORTALITY"] = ADMISSIONS["DEATHTIME"] == ADMISSIONS["DISCHTIME"]
     ihm_hadm_ids = set(ADMISSIONS.loc[ADMISSIONS["IN_HOSPITAL_MORTALITY"] == 1, "HADM_ID"])
-    ICUSTAYS["IN_HOSPITAL_MORTALITY"] = ICUSTAYS["HADM_ID"].isin(ihm_hadm_ids).astype(int)
-    ihm_icustay_ids = set(ICUSTAYS.loc[ICUSTAYS["IN_HOSPITAL_MORTALITY"] == 1, "ICUSTAY_ID"])
 
-    pid = np.load("../Synthetic_EHR_Generation/1_real_data/openmimic_preprocessing/earlyAgg/real_earlyAgg_pids.npy")
+    # 2) 같은 입원(HADM_ID)을 공유하는 모든 ICU stay에 IHM 라벨 부여
+    ICUSTAYS["IN_HOSPITAL_MORTALTY"] = ICUSTAYS["HADM_ID"].isin(ihm_hadm_ids).astype(np.int8)
+    ihm_icustay_ids = set(ICUSTAYS.loc[ICUSTAYS["IN_HOSPITAL_MORTALTY"] == 1, "ICUSTAY_ID"])
+
+    # 3) 대상 pid 순서에 맞춰 라벨 배열 생성
+    pid = np.load("../Synthetic_EHR_Generation/1_real_data/openmimic_preprocessing/earlyAgg/earlyAgg_pids.npy", allow_pickle=True)
     icustay_ids = pid[:, 1]
-    ihm_df = pd.DataFrame({
-        "ICUSTAY_ID": icustay_ids,
-        "IN_HOSPITAL_MORTALITY": 0
-    })
+    ihm_label = np.isin(icustay_ids, list(ihm_icustay_ids)).astype(np.int8)
 
-    ihm_df.loc[ihm_df["ICUSTAY_ID"].isin(ihm_icustay_ids), "IN_HOSPITAL_MORTALITY"] = 1
-
-    ihm_label = ihm_df["IN_HOSPITAL_MORTALITY"].values
-    np.save("real_earlyAgg_in_mortality_label.npy", ihm_label)
+    np.save("earlyAgg_in_mortality_label.npy", ihm_label)

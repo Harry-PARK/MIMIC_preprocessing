@@ -15,7 +15,7 @@ if __name__ == "__main__":
     arf_HADM_ID = DIAGNOSES_ICD.loc[mask, "HADM_ID"].drop_duplicates()
     ICUSTAYS["ARF"] = ICUSTAYS["HADM_ID"].isin(set(arf_HADM_ID)).astype(int)
 
-    pid = np.load("../Synthetic_EHR_Generation/1_real_data/openmimic_preprocessing/earlyAgg/real_earlyAgg_pids.npy")
+    pid = np.load("../Synthetic_EHR_Generation/1_real_data/openmimic_preprocessing/earlyAgg/earlyAgg_pids.npy")
     icustay_ids = pid[:, 1]
     arf = pd.DataFrame({
         "ICUSTAY_ID": icustay_ids,
@@ -25,4 +25,4 @@ if __name__ == "__main__":
     arf.loc[arf["ICUSTAY_ID"].isin(icustay_id_has_arf), "ARF"] = 1
 
     arf_label = arf["ARF"].values
-    np.save("real_in_arf_label.npy", arf_label)
+    np.save("in_arf_label.npy", arf_label)

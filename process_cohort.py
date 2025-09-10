@@ -14,7 +14,6 @@ def get_args():
     parser.add_argument("--mimic_path", type=str, default="../mimic3_csv/", help="Path to mimic dataset")
     parser.add_argument("--processed_tables_path", type=str, default="./processed_tables/", help="Path to processed tables")
     parser.add_argument("--processed_result_path", type=str, default="./processed_result/", help="Output path to save results")
-    parser.add_argument("--label_type", type=str, default="IN_HOSPITALITY_MORTALITY", help="Label type")
     parser.add_argument("--n_agg", type=int, default=-1, help="Number of aggregation. -1 means full aggregation")
     return parser.parse_args()
 
@@ -25,7 +24,6 @@ user_filename = args.filename
 om.Config.mimic_path = args.mimic_path
 processed_tables_path = args.processed_tables_path
 processed_result = args.processed_result_path
-label_type = args.label_type
 n_agg = args.n_agg
 
 logging.basicConfig(
@@ -68,13 +66,11 @@ if __name__ == '__main__':
     print("Done.")
 
     # make ML / DL dataset
-    pids, features, label = cohort.transform_dataset(label_type=label_type, n=n_agg)
+    pids, features = cohort.transform_dataset(n=n_agg)
     np.save(processed_result + f"{file_name}_pids.npy", pids.values)
     np.save(processed_result + f"{file_name}_features.npy", features.values)
     np.save(processed_result + f"{file_name}_features_names.npy", features.columns)
-    np.save(processed_result + f"{file_name}_{label_type}_label.npy", label.values)
     logging.info(f"features shape: {features.shape}")
-    logging.info(f"label shape: {label.shape}")
 
     # continuous / discrete -> split and save
     continuous, discrete = cohort.split_cont_disc_features()

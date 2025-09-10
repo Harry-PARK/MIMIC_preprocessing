@@ -19,7 +19,7 @@ if __name__ == "__main__":
     ICUSTAYS["MORTALITY"] = ICUSTAYS["HADM_ID"].isin(mortality_hadm_ids).astype(int)
     mortality_icustay_ids = set(ICUSTAYS.loc[ICUSTAYS["MORTALITY"] == 1, "ICUSTAY_ID"])
 
-    pid = np.load("../Synthetic_EHR_Generation/1_real_data/openmimic_preprocessing/earlyAgg/real_earlyAgg_pids.npy")
+    pid = np.load("../Synthetic_EHR_Generation/1_real_data/openmimic_preprocessing/earlyAgg/earlyAgg_pids.npy")
     icustay_ids = pid[:, 1]
     mortality_df = pd.DataFrame({
         "ICUSTAY_ID": icustay_ids,
@@ -29,4 +29,4 @@ if __name__ == "__main__":
     mortality_df.loc[mortality_df["ICUSTAY_ID"].isin(mortality_icustay_ids), "MORTALITY"] = 1
 
     mortality_label = mortality_df["MORTALITY"].values
-    np.save("real_earlyAgg_mortality_label.npy", mortality_label)
+    np.save("earlyAgg_mortality_label.npy", mortality_label)

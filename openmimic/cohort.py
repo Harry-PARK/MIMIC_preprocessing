@@ -99,16 +99,6 @@ class Cohort:
 
         self.data.columns = new_columns
 
-    # Labeling
-    def in_hospital_mortality_label(self):
-        # DEATHTIME indicates in-hospital mortality
-        data = self.data.groupby("ICUSTAY_ID").first().reset_index()
-        label = pd.DataFrame({"label": data["DEATHTIME"].apply(lambda x: 1 if pd.notnull(x) else 0)})
-        return label["label"]
-
-    def ARF_label(self):
-        pass
-
     # Preprocessing for Cohort
     def is_continuous(self, col: str) -> bool:
         # if unique value is more than 20, it is continuous
@@ -182,19 +172,11 @@ class Cohort:
         self.data = self.data[self.data["AGE"] >= 18]
 
 
-    def transform_dataset(self, label_type: str = "IN_HOSPITAL_MORTALITY", n:int=0):
+    def transform_dataset(self, n:int=0):
         print("Transform to ML/DL dataset...")
         drop_columns = ['FIRST_WARDID', 'LANGUAGE', 'MARITAL_STATUS', 'RELIGION', 'ICU_TIME', 'DEATHTIME', 'ADMITIME',
                         'DOB', 'T']
         onehot_columns = ['GENDER', 'ADMISSION_TYPE', 'ADMISSION_LOCATION', 'FIRST_CAREUNIT', 'INSURANCE', 'ETHNICITY']
-
-        label = None
-        if label_type == "IN_HOSPITAL_MORTALITY":
-            # in-hospital mortality
-            label = self.in_hospital_mortality_label()
-        elif label_type == "ARF":
-            # 48h in-hospital mortality
-            pass
 
 
         print("Dropping columns...")
@@ -217,7 +199,7 @@ class Cohort:
         pid = self.data[["SUBJECT_ID", "ICUSTAY_ID"]]
         features = self.data = self.data.drop(columns=["SUBJECT_ID", "ICUSTAY_ID"])
         print("Done.")
-        return pid, features, label
+        return pid, features
 
 
 

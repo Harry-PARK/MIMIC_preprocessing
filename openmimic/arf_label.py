@@ -25,4 +25,4 @@ if __name__ == '__main__':
     arf.loc[arf["ICUSTAY_ID"].isin(icustay_id_has_arf), "ARF"] = 1
 
     arf_label = arf["ARF"].values
-    np.save("real_arf_label.npy", arf_label)
+    np.save("arf_label.npy", arf_label)
