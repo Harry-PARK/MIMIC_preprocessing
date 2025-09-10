@@ -174,7 +174,7 @@ class Cohort:
 
     def transform_dataset(self, n:int=0):
         print("Transform to ML/DL dataset...")
-        drop_columns = ['FIRST_WARDID', 'LANGUAGE', 'MARITAL_STATUS', 'RELIGION', 'ICU_TIME', 'DEATHTIME', 'ADMITIME',
+        drop_columns = ['FIRST_WARDID', 'LANGUAGE', 'MARITAL_STATUS', 'RELIGION', 'ICU_TIME', 'DEATHTIME', 'ADMITTIME',
                         'DOB', 'T']
         onehot_columns = ['GENDER', 'ADMISSION_TYPE', 'ADMISSION_LOCATION', 'FIRST_CAREUNIT', 'INSURANCE', 'ETHNICITY']
 
