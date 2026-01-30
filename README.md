@@ -99,4 +99,4 @@ if __name__ == '__main__':
 *   `print_completion`: 함수 실행 시간을 측정하여 출력해주는 데코레이터입니다.
 
 ## License
-[License 정보 입력]
+MIT license
