@@ -8,7 +8,6 @@ if __name__ == '__main__':
     ICUSTAYS = pd.read_csv("../mimic3_csv/ICUSTAYS.csv")
 
     DIAGNOSES_ICD = DIAGNOSES_ICD[["SUBJECT_ID", "ICD9_CODE"]]
-
     ICUSTAYS = ICUSTAYS[["SUBJECT_ID", "ICUSTAY_ID"]]
 
     mask = DIAGNOSES_ICD["ICD9_CODE"].str.startswith(arf_codes, na=False)
